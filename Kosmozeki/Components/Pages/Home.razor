@@ -1,0 +1,182 @@
+﻿@page "/"
+@using Kosmozeki.Core.Models
+
+<div class="app-container" style="font-family: sans-serif; padding: 10px; max-width: 500px; margin: 0 auto; padding-bottom: 50px;">
+
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Ассистент Космозэка</h2>
+    </div>
+
+    <!-- МОЙ ПЕРСОНАЖ -->
+    <div class="card" style="border: 2px solid #28a745; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+
+        <!-- Сделаем имя героя тоже редактируемым с автосохранением -->
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <h3 style="color: #28a745; margin: 0;">Боец:</h3>
+            <input type="text" @bind="_hero.Name" @bind:after="AutoSaveAsync" style="font-weight: bold; border: none; border-bottom: 1px dashed #28a745; background: transparent; flex: 1; padding: 2px; color: #28a745;" />
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            @foreach (var part in _hero.BodyParts.Values)
+            {
+                <div style="border: 1px solid #ccc; padding: 5px; border-radius: 5px; background-color: @(part.IsDestroyed ? "#ffe6e6" : "#f0fdf4")">
+                    <strong style="color: @(part.IsDestroyed ? "red" : "black")">@part.Name</strong>
+
+                    <!-- Редактируемое ХП с автосохранением -->
+                    <div style="display: flex; align-items: center; gap: 5px; margin-top: 3px;">
+                        <label style="font-size: 0.8em;">ХП:</label>
+                        <input type="number"
+                               @bind="part.CurrentHp"
+                               @bind:after="AutoSaveAsync"
+                               style="width: 55px; padding: 2px;" />
+                        <span style="font-size: 0.8em;">/ @part.MaxHp</span>
+                    </div>
+
+                    <!-- Редактируемая Броня с автосохранением -->
+                    <div style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
+                        <label style="font-size: 0.8em;">Броня:</label>
+                        <input type="number"
+                               @bind="part.Armor"
+                               @bind:after="AutoSaveAsync"
+                               style="width: 55px; padding: 2px;" />
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Урон (здесь оставляем как было) -->
+        <div style="background-color: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffeeba;">
+            <strong style="display: block; margin-bottom: 5px;">Получить урон:</strong>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <input type="number" @bind="_incomingDamage" placeholder="Урон" style="width: 70px; padding: 5px;" />
+                <select @bind="_incomingZone" style="flex: 1; padding: 5px;">
+                    <option value="Torso">В тело</option>
+                    <option value="Head">В голову</option>
+                    <option value="LeftArm">В левую руку</option>
+                    <option value="RightArm">В правую руку</option>
+                    <option value="LeftLeg">В левую ногу</option>
+                    <option value="RightLeg">В правую ногу</option>
+                </select>
+                <!-- Вызов TakeDamage уже сам сохраняет состояние в БД -->
+                <button @onclick="TakeDamage" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px;">Ой!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- АРСЕНАЛ (Без изменений, только привязки те же) -->
+    <div class="card" style="border: 2px solid #6c757d; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+        <h3 style="color: #6c757d; margin-top: 0;">Арсенал</h3>
+        <label style="font-weight: bold; margin-bottom: 5px; display: block;">Активное оружие:</label>
+        <div style="display: flex; gap: 8px; margin-bottom: 15px; width: 100%;">
+
+            <!-- Селектор (исправленный) -->
+            <select @bind="ActiveWeaponIndex" style="flex: 1 1 auto; min-width: 0; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+                @for (int i = 0; i < _arsenal.Count; i++)
+                {
+                    <option value="@i">@_arsenal[i].Name (Патр: @_arsenal[i].CurrentAmmo/@_arsenal[i].MaxAmmo)</option>
+                }
+            </select>
+
+            <!-- Кнопка удаления (строго фиксированный размер) -->
+            <button @onclick="DeleteActiveWeaponAsync"
+                    title="Удалить оружие"
+                    style="flex: 0 0 auto; width: 44px; height: 44px; background-color: #dc3545; color: white; border: none; border-radius: 5px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                🗑
+            </button>
+        </div>
+
+        <details style="background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #ddd;">
+            <summary style="font-weight: bold; cursor: pointer; padding-bottom: 5px;">+ Добавить новое оружие</summary>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+
+                <!-- Название -->
+                <div style="display: flex; flex-direction: column;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #555; margin-bottom: 3px;">Название оружия:</label>
+                    <input type="text" @bind="_newWepName" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;" />
+                </div>
+
+                <!-- Урон (DMG) -->
+                <div style="display: flex; flex-direction: column;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #555; margin-bottom: 3px;">Урон одной пули (DMG):</label>
+                    <input type="number" @bind="_newWepDmg" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;" />
+                </div>
+
+                <!-- Сложность (DIF) -->
+                <div style="display: flex; flex-direction: column;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #555; margin-bottom: 3px;">Базовая сложность (DIF):</label>
+                    <input type="number" @bind="_newWepDif" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;" />
+                </div>
+
+                <!-- Магазин (AMMO) -->
+                <div style="display: flex; flex-direction: column;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #555; margin-bottom: 3px;">Емкость магазина (AMMO):</label>
+                    <input type="number" @bind="_newWepAmmo" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;" />
+                </div>
+
+                <!-- Скорострел (ROF) -->
+                <div style="display: flex; flex-direction: column;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #555; margin-bottom: 3px;">Скорострельность (ROF):</label>
+                    <input type="number" @bind="_newWepRof" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;" />
+                </div>
+
+                <!-- Кнопка сохранения -->
+                <button @onclick="AddNewWeapon" style="margin-top: 5px; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 1em;">
+                    Сохранить в арсенал
+                </button>
+
+            </div>
+        </details>
+    </div>
+    <!-- АТАКА -->
+    @if (ActiveWeapon != null)
+    {
+        <div class="card" style="border: 2px solid #007bff; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+            <h3 style="color: #007bff; margin-top: 0;">Атака: @ActiveWeapon.Name</h3>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 10px; background: #e9ecef; padding: 5px; border-radius: 3px;">
+                <span>DMG: <strong>@ActiveWeapon.BaseDMG</strong></span>
+                <span>Баз. DIF: <strong>@ActiveWeapon.BaseDIF</strong></span>
+                <span>ROF: <strong>@ActiveWeapon.ROF</strong></span>
+                <span>AMMO: <strong>@ActiveWeapon.CurrentAmmo</strong></span>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+                <label>Сколько пуль выпустить (Макс. ROF):</label>
+                <!-- Ограничиваем ввод пулей не только магазином, но и показателем ROF -->
+                <input type="number" @bind="_bulletsFired" min="1" max="@Math.Min(ActiveWeapon.CurrentAmmo, ActiveWeapon.ROF)" style="width: 100%; padding: 8px;" />
+            </div>
+
+            <!-- Универсальный модификатор (+ или -) -->
+            <div style="margin-bottom: 10px;">
+                <label>Модификатор (Штраф: +, Бонус: -):</label>
+                <input type="number" @bind="_customModifier" placeholder="Например: 15 (прицел) или -10 (укрытие)" style="width: 100%; padding: 8px;" />
+            </div>
+
+            <!-- ДИНАМИЧЕСКОЕ ОТОБРАЖЕНИЕ СЛОЖНОСТИ -->
+            <div style="text-align: center; margin-bottom: 15px; font-size: 1.1em; background: #cce5ff; padding: 5px; border-radius: 5px; border: 1px solid #b8daff; color: #004085;">
+                Итоговый DIF для выстрела: <strong>@CalculatedFinalDIF</strong>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button @onclick="RollAndShoot" style="flex: 2; padding: 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 1.1em;">
+                    🎲 БРОСИТЬ d100
+                </button>
+                <button @onclick="ReloadActiveWeapon" style="flex: 1; padding: 15px; background-color: #6c757d; color: white; border: none; border-radius: 5px;">
+                    Перезарядка
+                </button>
+            </div>
+        </div>
+    }
+
+    <!-- ЛОГ БОЯ -->
+    <div class="card" style="border: 1px solid #333; padding: 10px; border-radius: 8px; background: #1e1e1e; color: #0f0;">
+        <h3 style="margin-top: 0; color: #fff;">Журнал</h3>
+        <div style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.9em;">
+            @foreach (var log in _combatLog)
+            {
+                <div style="margin-bottom: 8px; border-bottom: 1px dashed #444; padding-bottom: 4px;">@((MarkupString)log)</div>
+            }
+        </div>
+    </div>
+</div>

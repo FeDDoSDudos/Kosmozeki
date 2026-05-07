@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Kosmozeki.Core/Kosmozeki.Core.csproj" />
+  <Project Path="Kosmozeki/Kosmozeki.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
+</Solution>
