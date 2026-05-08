@@ -1,6 +1,6 @@
 ﻿namespace Kosmozeki.Domain.Shared;
 
-public  abstract class DomainEvent
+public abstract class DomainEvent
 {
     public Guid EventId { get; } = Guid.NewGuid();
     
