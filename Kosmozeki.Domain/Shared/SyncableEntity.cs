@@ -5,7 +5,7 @@ public abstract class SyncableEntity : AggregateRoot
 {
     public Guid RoomId { get; protected set; }
     
-    public long Version { get; protected set; }
+    public DateTimeOffset Version { get; protected set; }
     
     public DateTimeOffset UpdatedAt { get; protected set; }
     
