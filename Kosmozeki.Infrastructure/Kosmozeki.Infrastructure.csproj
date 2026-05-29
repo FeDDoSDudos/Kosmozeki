@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Kosmozeki.Application\Kosmozeki.Application.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -7,7 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Common\" />
+    <ProjectReference Include="..\Kosmozeki.Contracts\Kosmozeki.Contracts.csproj" />
+    <ProjectReference Include="..\Kosmozeki.Domain\Kosmozeki.Domain.csproj" />
   </ItemGroup>
 
 </Project>
