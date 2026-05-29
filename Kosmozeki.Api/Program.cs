@@ -1,5 +1,7 @@
 using Kosmozeki.Application.DependencyInjection;
 using Kosmozeki.Infrastructure.DependencyInjection;
+using Kosmozeki.Infrastructure.Persistence.Postgre;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,9 +17,17 @@ builder.Services.AddSwaggerGen();
 // место для наших DIев
 builder.Services.AddApplication();
 builder.Services.AddPostgreSQL(builder.Configuration);
+builder.Services.AddCache();
+builder.Services.AddInfrastructure();
 
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

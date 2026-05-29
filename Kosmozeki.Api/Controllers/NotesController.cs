@@ -14,13 +14,13 @@ namespace Kosmozeki.Server.Controllers;
 [Route("api/rooms/{roomId:guid}/notes")]
 public sealed class NotesController : ControllerBase
 {
-    private readonly ICommandHandler<CreateNoteCommand> _createNoteHandler;
+    private readonly ICommandHandler<CreateNoteCommand, NoteDto> _createNoteHandler;
     private readonly ICommandHandler<UpdateNoteCommand> _updateNoteHandler;
     private readonly ICommandHandler<DeleteNoteCommand> _deleteNoteHandler;
     private readonly IQueryHandler<GetRoomNotesQuery, IReadOnlyList<NoteDto>> _getRoomNotesHandler;
 
     public NotesController(
-        ICommandHandler<CreateNoteCommand> createNoteHandler,
+        ICommandHandler<CreateNoteCommand, NoteDto> createNoteHandler,
         ICommandHandler<UpdateNoteCommand> updateNoteHandler,
         ICommandHandler<DeleteNoteCommand> deleteNoteHandler,
         IQueryHandler<GetRoomNotesQuery, IReadOnlyList<NoteDto>> getRoomNotesHandler)

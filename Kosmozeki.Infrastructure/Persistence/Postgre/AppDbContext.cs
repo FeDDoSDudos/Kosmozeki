@@ -1,7 +1,6 @@
 ﻿using Kosmozeki.Domain.Notes;
 using Kosmozeki.Domain.Shared;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection.Emit;
 
 namespace Kosmozeki.Infrastructure.Persistence.Postgre;
 
@@ -17,7 +16,13 @@ public sealed class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Ignore<DomainEvent>();
+
+        modelBuilder.Entity<SharedNote>()
+            .Ignore(x => x.DomainEvents);
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
         base.OnModelCreating(modelBuilder);
     }
 }

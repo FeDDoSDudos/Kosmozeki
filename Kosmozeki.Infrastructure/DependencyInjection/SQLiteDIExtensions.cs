@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Kosmozeki.Infrastructure.DependencyInjection;
 
-public static class SQLiteInfrastructureExtensions
+public static class SQLiteDIExtensions
 {
     public static IServiceCollection AddKosmozekiMauiInfrastructure(
     this IServiceCollection services,
