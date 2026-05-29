@@ -21,7 +21,7 @@ public sealed class SqliteUnitOfWork : IUnitOfWork
         if (_transaction is not null)
             return;
 
-        _transaction = await _connection.BeginTransactionAsync(ct);
+        _transaction = _connection.BeginTransaction();
     }
 
     public Task CommitAsync(CancellationToken ct = default)

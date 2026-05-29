@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Kosmozeki.Infrastructure.DependencyInjection;
 
-public static class PostgreDatabaseInitializer
+public static class PostgreSQLInfrastructureExtensions
 {
     public static IServiceCollection AddKosmozekiInfrastructure(
         this IServiceCollection services,
