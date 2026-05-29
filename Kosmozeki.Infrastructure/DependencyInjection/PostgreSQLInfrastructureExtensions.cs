@@ -13,7 +13,7 @@ namespace Kosmozeki.Infrastructure.DependencyInjection;
 
 public static class PostgreSQLInfrastructureExtensions
 {
-    public static IServiceCollection AddKosmozekiInfrastructure(
+    public static IServiceCollection AddPostgreSQL(
         this IServiceCollection services,
         IConfiguration configuration)
     {
