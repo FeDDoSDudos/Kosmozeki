@@ -11,8 +11,5 @@ public abstract class SyncableEntity : AggregateRoot
     public bool IsDeleted { get; protected set; }
 
     public string? LastModifiedBy  { get; protected set; }
-    public string? LastModifiedBy { get; protected set; }
-
-
 }
 
