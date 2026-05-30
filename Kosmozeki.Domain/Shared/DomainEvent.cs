@@ -1,4 +1,6 @@
-﻿namespace Kosmozeki.Domain.Shared;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Kosmozeki.Domain.Shared;
 
 public abstract class DomainEvent
 {

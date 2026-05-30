@@ -1,9 +1,15 @@
 <Solution>
-  <Folder Name="/Domain/">
+  <Folder Name="/Core/">
+    <Project Path="Kosmozeki.Application/Kosmozeki.Application.csproj" Id="9291d57d-0610-4d29-a8f5-336978144878" />
+    <Project Path="Kosmozeki.Contracts/Kosmozeki.Contracts.csproj" Id="5db4f353-4405-4871-8e5e-fa7d4281f99b" />
+    <Project Path="Kosmozeki.Core/Kosmozeki.Core.csproj" />
     <Project Path="Kosmozeki.Domain/Kosmozeki.Domain.csproj" Id="9b2f24aa-6631-4d41-a1f3-984bf2c582e7" />
   </Folder>
-  <Project Path="Kosmozeki.Core/Kosmozeki.Core.csproj" />
-  <Project Path="Kosmozeki/Kosmozeki.csproj">
-    <Deploy Solution="Debug|*" />
-  </Project>
+  <Folder Name="/Presentation/">
+    <Project Path="Kosmozeki.Api/Kosmozeki.Api.csproj" Id="564317f5-7e5c-430a-a4bf-4829245e972a" />
+    <Project Path="Kosmozeki/Kosmozeki.Mobile.csproj">
+      <Deploy Solution="Debug|*" />
+    </Project>
+  </Folder>
+  <Project Path="Kosmozeki.Infrastructure/Kosmozeki.Infrastructure.csproj" Id="7fb49426-4831-4754-915b-a30b892058de" />
 </Solution>
