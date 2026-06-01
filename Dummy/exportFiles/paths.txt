@@ -1,0 +1,9 @@
+Kosmozeki/MauiProgram.cs
+Kosmozeki/Kosmozeki.Mobile.csproj
+Kosmozeki.Application/DependencyInjection/ApplicationExtensions.cs
+Kosmozeki.Infrastructure/DependencyInjection/InfrastructureDIExtensions.cs
+Kosmozeki.Infrastructure/DependencyInjection/SQLiteDIExtensions.cs
+Kosmozeki.Domain/Notes/SharedNote.cs
+Kosmozeki.Application/Notes/GetRoomNotes/GetRoomNotesQueryHandler.cs
+Kosmozeki.Application/Notes/CreateNote/CreateNoteCommandHandler.cs
+Kosmozeki.Api/Controllers/NotesController.cs

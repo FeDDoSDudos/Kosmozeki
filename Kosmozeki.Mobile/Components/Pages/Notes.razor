@@ -1,0 +1,220 @@
+﻿@page "/notes"
+@using Kosmozeki.Contracts.Notes.Dtos
+@using Kosmozeki.Mobile.Services
+@inject NotesFacade NotesFacade
+
+<PageTitle>Notes</PageTitle>
+
+<h1>Notes</h1>
+
+<div class="mb-3">
+    <label class="form-label">Новая заметка</label>
+    <textarea class="form-control" rows="5" @bind="_newContent"></textarea>
+</div>
+
+<div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" id="masterOnlyNew" @bind="_newMasterOnly" />
+    <label class="form-check-label" for="masterOnlyNew">Только для мастера</label>
+</div>
+
+<div class="mb-4">
+    <button class="btn btn-primary me-2" @onclick="CreateNoteAsync" disabled="@_isBusy">Сохранить</button>
+    <button class="btn btn-secondary" @onclick="ReloadAsync" disabled="@_isBusy">Обновить</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(_status))
+{
+    <div class="alert alert-info">@_status</div>
+}
+
+@if (_isBusy)
+{
+    <p>Загрузка...</p>
+}
+else if (_notes.Count == 0)
+{
+    <p>Заметок пока нет.</p>
+}
+else
+{
+    @foreach (var note in _notes)
+    {
+        var isEditing = _editId == note.Id;
+
+        <div class="card mb-3">
+            <div class="card-body">
+                @if (isEditing)
+                {
+                    <div class="mb-2">
+                        <textarea class="form-control" rows="5" @bind="_editContent"></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="@($"master-{note.Id}")" @bind="_editMasterOnly" />
+                        <label class="form-check-label" for="@($"master-{note.Id}")">Только для мастера</label>
+                    </div>
+
+                    <button class="btn btn-success me-2" @onclick="() => SaveEditAsync(note.Id)" disabled="@_isBusy">Применить</button>
+                    <button class="btn btn-outline-secondary" @onclick="CancelEdit" disabled="@_isBusy">Отмена</button>
+                }
+                else
+                {
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge @(note.Visibility == "MasterOnly" ? "bg-warning text-dark" : "bg-info text-dark")">
+                                @note.Visibility
+                            </span>
+                        </div>
+                    </div>
+
+                    <pre style="white-space: pre-wrap; margin: 0;">@note.Content</pre>
+
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => BeginEdit(note)">Редактировать</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(note.Id)" disabled="@_isBusy">Удалить</button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<NoteDto> _notes = new();
+    private bool _isBusy;
+    private string _status = string.Empty;
+
+    private string _newContent = string.Empty;
+    private bool _newMasterOnly;
+
+    private Guid? _editId;
+    private string _editContent = string.Empty;
+    private bool _editMasterOnly;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            _isBusy = true;
+            _status = string.Empty;
+
+            var notes = await NotesFacade.GetNotesAsync(masterOnly: false);
+            _notes = notes.ToList();
+        }
+        catch (Exception ex)
+        {
+            _status = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task CreateNoteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newContent))
+        {
+            _status = "Введите текст заметки.";
+            return;
+        }
+
+        try
+        {
+            _isBusy = true;
+            _status = string.Empty;
+
+            await NotesFacade.CreateAsync(_newContent, _newMasterOnly);
+
+            _newContent = string.Empty;
+            _newMasterOnly = false;
+
+            await ReloadAsync();
+            _status = "Заметка создана.";
+        }
+        catch (Exception ex)
+        {
+            _status = $"Ошибка создания: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void BeginEdit(NoteDto note)
+    {
+        _editId = note.Id;
+        _editContent = note.Content;
+        _editMasterOnly = string.Equals(note.Visibility, "MasterOnly", StringComparison.OrdinalIgnoreCase);
+        _status = string.Empty;
+    }
+
+    private void CancelEdit()
+    {
+        _editId = null;
+        _editContent = string.Empty;
+        _editMasterOnly = false;
+    }
+
+    private async Task SaveEditAsync(Guid noteId)
+    {
+        if (string.IsNullOrWhiteSpace(_editContent))
+        {
+            _status = "Текст заметки не может быть пустым.";
+            return;
+        }
+
+        try
+        {
+            _isBusy = true;
+            _status = string.Empty;
+
+            await NotesFacade.UpdateAsync(noteId, _editContent, _editMasterOnly);
+
+            CancelEdit();
+            await ReloadAsync();
+            _status = "Заметка обновлена.";
+        }
+        catch (Exception ex)
+        {
+            _status = $"Ошибка обновления: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task DeleteAsync(Guid noteId)
+    {
+        try
+        {
+            _isBusy = true;
+            _status = string.Empty;
+
+            await NotesFacade.DeleteAsync(noteId);
+
+            if (_editId == noteId)
+            {
+                CancelEdit();
+            }
+
+            await ReloadAsync();
+            _status = "Заметка удалена.";
+        }
+        catch (Exception ex)
+        {
+            _status = $"Ошибка удаления: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+}

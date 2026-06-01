@@ -4,45 +4,30 @@ namespace Kosmozeki.Infrastructure.Sqlite;
 
 public static class SqliteDatabaseInitializer
 {
-    public static async Task InitializeAsync(SqliteConnection connection, CancellationToken ct = default)
+    public static async Task InitializeAsync(SqliteConnection connection)
     {
-        if (connection.State != System.Data.ConnectionState.Open)
-            await connection.OpenAsync(ct);
+        await connection.OpenAsync();
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = """
-            create table if not exists Notes
-            (
-                Id text primary key,
-                RoomId text not null,
-                AuthorPlayerId text not null,
-                Content text not null,
-                Visibility text not null,
-                Version integer not null,
-                UpdatedAt text not null,
-                IsDirty integer not null,
-                IsDeleted integer not null,
-                LastModifiedBy text null
-            );
+        var cmd = connection.CreateCommand();
+        cmd.CommandText = """
+        CREATE TABLE IF NOT EXISTS Characters (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            Name TEXT NOT NULL,
+            BodyPartsJson TEXT NOT NULL
+        );
 
-            create table if not exists OutboxEntries
-            (
-                Id text primary key,
-                EntityType text not null,
-                EntityId text not null,
-                Operation text not null,
-                Payload text not null,
-                RetryCount integer not null,
-                CreatedAt text not null,
-                ProcessedAt text null
-            );
+        CREATE TABLE IF NOT EXISTS Weapons (
+            Id INTEGER PRIMARY KEY AUTOINCREMENT,
+            Name TEXT NOT NULL,
+            BaseDMG INTEGER NOT NULL,
+            EDMG INTEGER NOT NULL,
+            MaxAmmo INTEGER NOT NULL,
+            CurrentAmmo INTEGER NOT NULL,
+            ROF INTEGER NOT NULL,
+            BaseDIF INTEGER NOT NULL
+        );
+        """;
 
-            create index if not exists IX_Notes_RoomId on Notes(RoomId);
-            create index if not exists IX_Notes_RoomId_UpdatedAt on Notes(RoomId, UpdatedAt);
-            create index if not exists IX_OutboxEntries_ProcessedAt on OutboxEntries(ProcessedAt);
-            create index if not exists IX_OutboxEntries_CreatedAt on OutboxEntries(CreatedAt);
-            """;
-
-        await command.ExecuteNonQueryAsync(ct);
+        await cmd.ExecuteNonQueryAsync();
     }
 }
