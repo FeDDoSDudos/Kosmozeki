@@ -5,16 +5,14 @@
 
 <PageTitle>Notes</PageTitle>
 
-<h1>Notes</h1>
-
 <div class="mb-3">
     <label class="form-label">Новая заметка</label>
     <textarea class="form-control" rows="5" @bind="_newContent"></textarea>
 </div>
 
 <div class="form-check mb-3">
-    <input class="form-check-input" type="checkbox" id="masterOnlyNew" @bind="_newMasterOnly" />
-    <label class="form-check-label" for="masterOnlyNew">Только для мастера</label>
+    <input class="form-check-input" type="checkbox" id="privateNew" @bind="_newPrivate" />
+    <label class="form-check-label" for="privateNew">Приватное</label>
 </div>
 
 <div class="mb-4">
@@ -50,8 +48,8 @@ else
                     </div>
 
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="@($"master-{note.Id}")" @bind="_editMasterOnly" />
-                        <label class="form-check-label" for="@($"master-{note.Id}")">Только для мастера</label>
+                        <input class="form-check-input" type="checkbox" id="@($"private-{note.Id}")" @bind="_editPrivate" />
+                        <label class="form-check-label" for="@($"private-{note.Id}")">Приватное</label>
                     </div>
 
                     <button class="btn btn-success me-2" @onclick="() => SaveEditAsync(note.Id)" disabled="@_isBusy">Применить</button>
@@ -61,7 +59,7 @@ else
                 {
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
-                            <span class="badge @(note.Visibility == "MasterOnly" ? "bg-warning text-dark" : "bg-info text-dark")">
+                            <span class="badge @(note.Visibility == "Private" ? "bg-warning text-dark" : "bg-info text-dark")">
                                 @note.Visibility
                             </span>
                         </div>
@@ -85,11 +83,11 @@ else
     private string _status = string.Empty;
 
     private string _newContent = string.Empty;
-    private bool _newMasterOnly;
+    private bool _newPrivate;
 
     private Guid? _editId;
     private string _editContent = string.Empty;
-    private bool _editMasterOnly;
+    private bool _editPrivate;
 
     protected override async Task OnInitializedAsync()
     {
@@ -103,7 +101,7 @@ else
             _isBusy = true;
             _status = string.Empty;
 
-            var notes = await NotesFacade.GetNotesAsync(masterOnly: false);
+            var notes = await NotesFacade.GetNotesAsync(@private: false);
             _notes = notes.ToList();
         }
         catch (Exception ex)
@@ -129,10 +127,10 @@ else
             _isBusy = true;
             _status = string.Empty;
 
-            await NotesFacade.CreateAsync(_newContent, _newMasterOnly);
+            await NotesFacade.CreateAsync(_newContent, _newPrivate);
 
             _newContent = string.Empty;
-            _newMasterOnly = false;
+            _newPrivate = false;
 
             await ReloadAsync();
             _status = "Заметка создана.";
@@ -151,7 +149,7 @@ else
     {
         _editId = note.Id;
         _editContent = note.Content;
-        _editMasterOnly = string.Equals(note.Visibility, "MasterOnly", StringComparison.OrdinalIgnoreCase);
+        _editPrivate = string.Equals(note.Visibility, "Private", StringComparison.OrdinalIgnoreCase);
         _status = string.Empty;
     }
 
@@ -159,7 +157,7 @@ else
     {
         _editId = null;
         _editContent = string.Empty;
-        _editMasterOnly = false;
+        _editPrivate = false;
     }
 
     private async Task SaveEditAsync(Guid noteId)
@@ -175,7 +173,7 @@ else
             _isBusy = true;
             _status = string.Empty;
 
-            await NotesFacade.UpdateAsync(noteId, _editContent, _editMasterOnly);
+            await NotesFacade.UpdateAsync(noteId, _editContent, _editPrivate);
 
             CancelEdit();
             await ReloadAsync();

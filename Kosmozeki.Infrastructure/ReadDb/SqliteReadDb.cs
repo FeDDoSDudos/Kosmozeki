@@ -15,7 +15,7 @@ public sealed class SqliteReadDb : IReadDb
 
     public async Task<IReadOnlyList<NoteDto>> QueryRoomNotesAsync(
         Guid roomId,
-        bool masterOnly,
+        bool @private,
         CancellationToken ct)
     {
         if (_connection.State != System.Data.ConnectionState.Open)
@@ -36,12 +36,12 @@ public sealed class SqliteReadDb : IReadDb
             from Notes
             where RoomId = $roomId
               and IsDeleted = 0
-              and ($masterOnly = 0 or Visibility = 'MasterOnly')
+              and ($private = 0 or Visibility = 'Private')
             order by UpdatedAt desc;
             """;
 
         command.Parameters.AddWithValue("$roomId", roomId.ToString());
-        command.Parameters.AddWithValue("$masterOnly", masterOnly ? 1 : 0);
+        command.Parameters.AddWithValue("$private", @private ? 1 : 0);
 
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))

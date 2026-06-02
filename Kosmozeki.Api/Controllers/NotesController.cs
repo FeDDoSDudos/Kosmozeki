@@ -35,11 +35,11 @@ public sealed class NotesController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<NoteDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRoomNotes(
         [FromRoute] Guid roomId,
-        [FromQuery] bool masterOnly,
+        [FromQuery] bool @private,
         CancellationToken ct)
     {
         var result = await _getRoomNotesHandler.HandleAsync(
-            new GetRoomNotesQuery(roomId, masterOnly),
+            new GetRoomNotesQuery(roomId, @private),
             ct);
 
         return Ok(result);

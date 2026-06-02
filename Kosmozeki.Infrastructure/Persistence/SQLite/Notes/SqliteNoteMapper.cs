@@ -14,7 +14,7 @@ internal static class SqliteNoteMapper
         Set(note, "AuthorPlayerId", Guid.Parse(reader.GetString(2)));
         Set(note, "Content", reader.GetString(3));
         Set(note, "Visibility", Enum.Parse(typeof(NoteVisibility), reader.GetString(4)));
-        Set(note, "Version", reader.GetInt64(5));
+        Set(note, "Version", DateTimeOffset.Parse(reader.GetString(5)));
         Set(note, "UpdatedAt", DateTimeOffset.Parse(reader.GetString(6)));
         Set(note, "IsDirty", reader.GetInt64(7) == 1);
         Set(note, "IsDeleted", reader.GetInt64(8) == 1);

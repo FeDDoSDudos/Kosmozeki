@@ -49,7 +49,7 @@ public sealed class SqliteNoteRepository : INoteRepository
         return SqliteNoteMapper.Map(reader);
     }
 
-    public async Task UpsertAsync(SharedNote note, CancellationToken ct = default)
+    public async Task UpsertAsync(SharedNote note, CancellationToken ct = default) 
     {
         if (_connection.State != System.Data.ConnectionState.Open)
             await _connection.OpenAsync(ct);
@@ -100,7 +100,7 @@ public sealed class SqliteNoteRepository : INoteRepository
         command.Parameters.AddWithValue("$authorPlayerId", note.AuthorPlayerId.ToString());
         command.Parameters.AddWithValue("$content", note.Content);
         command.Parameters.AddWithValue("$visibility", note.Visibility.ToString());
-        command.Parameters.AddWithValue("$version", note.Version);
+        command.Parameters.AddWithValue("$version", note.Version.ToString("O"));
         command.Parameters.AddWithValue("$updatedAt", note.UpdatedAt.ToString("O"));
         command.Parameters.AddWithValue("$isDirty", note.IsDirty ? 1 : 0);
         command.Parameters.AddWithValue("$isDeleted", note.IsDeleted ? 1 : 0);

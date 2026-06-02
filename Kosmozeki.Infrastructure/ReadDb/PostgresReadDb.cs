@@ -17,14 +17,14 @@ public sealed class PostgresReadDb : IReadDb
 
     public async Task<IReadOnlyList<NoteDto>> QueryRoomNotesAsync(
         Guid roomId,
-        bool masterOnly,
+        bool @private,
         CancellationToken ct)
     {
         var query = _dbContext.Notes
             .AsNoTracking()
             .Where(x => x.RoomId == roomId && !x.IsDeleted);
 
-        if (masterOnly)
+        if (@private)
         {
             query = query.Where(x => x.Visibility == NoteVisibility.Private);
         }

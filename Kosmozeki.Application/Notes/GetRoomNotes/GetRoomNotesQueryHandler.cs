@@ -1,8 +1,5 @@
 ﻿using Kosmozeki.Application.Common;
 using Kosmozeki.Contracts.Notes.Dtos;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Kosmozeki.Application.Notes.GetRoomNotes;
 
@@ -22,13 +19,13 @@ public sealed class GetRoomNotesQueryHandler
         GetRoomNotesQuery query,
         CancellationToken ct = default)
     {
-        var cacheKey = $"notesroom{query.RoomId}master{query.MasterOnly}";
+        var cacheKey = NotesCacheKeys.Room(query.RoomId);
 
         var cached = await _cache.GetAsync<IReadOnlyList<NoteDto>>(cacheKey, ct);
         if (cached is not null)
             return cached;
 
-        var notes = await _readDb.QueryRoomNotesAsync(query.RoomId, query.MasterOnly, ct);
+        var notes = await _readDb.QueryRoomNotesAsync(query.RoomId, query.Private, ct);
 
         await _cache.SetAsync(cacheKey, notes, TimeSpan.FromMinutes(5), ct);
 

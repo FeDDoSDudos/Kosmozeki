@@ -30,8 +30,8 @@ public sealed class NotesFacade
         _deleteNote = deleteNote;
     }
 
-    public Task<IReadOnlyList<NoteDto>> GetNotesAsync(bool masterOnly, CancellationToken ct = default)
-        => _getNotes.HandleAsync(new GetRoomNotesQuery(DefaultRoomId, masterOnly), ct);
+    public Task<IReadOnlyList<NoteDto>> GetNotesAsync(bool @private, CancellationToken ct = default)
+        => _getNotes.HandleAsync(new GetRoomNotesQuery(DefaultRoomId, @private), ct);
 
     public Task<NoteDto> CreateAsync(string content, bool masterOnly, CancellationToken ct = default)
         => _createNote.HandleAsync(
@@ -43,13 +43,13 @@ public sealed class NotesFacade
                 "maui"),
             ct);
 
-    public Task UpdateAsync(Guid noteId, string content, bool masterOnly, CancellationToken ct = default)
+    public Task UpdateAsync(Guid noteId, string content, bool @private, CancellationToken ct = default)
         => _updateNote.HandleAsync(
             new UpdateNoteCommand(
                 DefaultRoomId,
                 noteId,
                 content,
-                masterOnly ? NoteVisibility.Private : NoteVisibility.Shared),
+                @private ? NoteVisibility.Private : NoteVisibility.Shared),
             ct);
 
     public Task DeleteAsync(Guid noteId, CancellationToken ct = default)
