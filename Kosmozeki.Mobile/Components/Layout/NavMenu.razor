@@ -1,22 +1,11 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Kosmozeki</a>
-    </div>
-</div>
+﻿<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="app-tabbar" aria-label="Основная навигация">
+        <NavLink class="app-tab" href="" Match="NavLinkMatch.All" title="Home" aria-label="Home">
+            <span class="app-tab-icon icon-home" aria-hidden="true"></span>
+        </NavLink>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="notes">
-                <span class="bi bi-journal-text-nav-menu" aria-hidden="true"></span> Notes
-            </NavLink>
-        </div>
+        <NavLink class="app-tab" href="notes" title="Notes" aria-label="Notes">
+            <span class="app-tab-icon icon-notes" aria-hidden="true"></span>
+        </NavLink>
     </nav>
 </div>
