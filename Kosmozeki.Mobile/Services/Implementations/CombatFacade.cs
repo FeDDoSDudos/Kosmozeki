@@ -32,11 +32,9 @@ public sealed class CombatFacade
         var weapons = await _weapons.GetAllAsync(ct);
         if (weapons.Count == 0)
         {
-            var pistol = new Weapon("Стандартный пистолет", 20, 0, 7, 2, 30);
-            var rifle = new Weapon("Штурмовая винтовка", 15, 0, 30, 30, 50);
+            var pistol = new Weapon("Ржавый пистолет", 20, 0, 7, 2, 30);
 
             await _weapons.UpsertAsync(pistol, ct);
-            await _weapons.UpsertAsync(rifle, ct);
 
             weapons = await _weapons.GetAllAsync(ct);
         }

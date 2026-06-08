@@ -1,23 +1,28 @@
 ﻿@page "/notes"
 @using Kosmozeki.Contracts.Notes.Dtos
 @using Kosmozeki.Mobile.Services
+@using Kosmozeki.Core.Realtime
+@implements IAsyncDisposable
 @inject NotesFacade NotesFacade
+@inject IRoomRealtimeService RoomRealtimeService
+@inject ISyncBackgroundService SyncBackgroundService
+
 
 <PageTitle>Notes</PageTitle>
 
 <div class="mb-3">
     <label class="form-label">Новая заметка</label>
-    <textarea class="form-control" rows="5" @bind="_newContent"></textarea>
+    <textarea class="form-control" rows="5" @bind="_newContent" disabled="@_isBusy"></textarea>
 </div>
 
 <div class="form-check mb-3">
-    <input class="form-check-input" type="checkbox" id="privateNew" @bind="_newPrivate" />
+    <input class="form-check-input" type="checkbox" id="privateNew" @bind="_newPrivate" disabled="@_isBusy" />
     <label class="form-check-label" for="privateNew">Приватное</label>
 </div>
 
 <div class="mb-4">
     <button class="btn btn-primary me-2" @onclick="CreateNoteAsync" disabled="@_isBusy">Сохранить</button>
-    <button class="btn btn-secondary" @onclick="ReloadAsync" disabled="@_isBusy">Обновить</button>
+    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_isBusy">Обновить</button>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(_status))
@@ -25,7 +30,7 @@
     <div class="alert alert-info">@_status</div>
 }
 
-@if (_isBusy)
+@if (_isBusy && _notes.Count == 0)
 {
     <p>Загрузка...</p>
 }
@@ -44,11 +49,15 @@ else
                 @if (isEditing)
                 {
                     <div class="mb-2">
-                        <textarea class="form-control" rows="5" @bind="_editContent"></textarea>
+                        <textarea class="form-control" rows="5" @bind="_editContent" disabled="@_isBusy"></textarea>
                     </div>
 
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="@($"private-{note.Id}")" @bind="_editPrivate" />
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="@($"private-{note.Id}")"
+                               @bind="_editPrivate"
+                               disabled="@_isBusy" />
                         <label class="form-check-label" for="@($"private-{note.Id}")">Приватное</label>
                     </div>
 
@@ -58,17 +67,23 @@ else
                 else
                 {
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <span class="badge @(note.Visibility == "Private" ? "bg-warning text-dark" : "bg-info text-dark")">
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <span class="badge @(string.Equals(note.Visibility, "Private", StringComparison.OrdinalIgnoreCase)
+                                                                  ? "bg-warning text-dark"
+                                                                  : "bg-info text-dark")">
                                 @note.Visibility
                             </span>
+
+                            <small class="text-muted">
+                                @note.UpdatedAt.LocalDateTime.ToString("g")
+                            </small>
                         </div>
                     </div>
 
                     <pre style="white-space: pre-wrap; margin: 0;">@note.Content</pre>
 
                     <div class="mt-3">
-                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => BeginEdit(note)">Редактировать</button>
+                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => BeginEdit(note)" disabled="@_isBusy">Редактировать</button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(note.Id)" disabled="@_isBusy">Удалить</button>
                     </div>
                 }
@@ -78,7 +93,7 @@ else
 }
 
 @code {
-    private List<NoteDto> _notes = new();
+    private readonly List<NoteDto> _notes = [];
     private bool _isBusy;
     private string _status = string.Empty;
 
@@ -89,20 +104,81 @@ else
     private string _editContent = string.Empty;
     private bool _editPrivate;
 
+    private static readonly Guid RoomId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     protected override async Task OnInitializedAsync()
     {
-        await ReloadAsync();
+        SyncBackgroundService.SyncCompleted += HandleSyncCompletedAsync;
+        SyncBackgroundService.SyncFailed += HandleSyncFailedAsync;
+        RoomRealtimeService.NotesChanged += HandleNotesChangedAsync;
+
+        await SyncBackgroundService.StartAsync();
+        await ReloadLocalAsync(clearStatus: false);
+        _status = "Локальные данные загружены.";
+
+        _ = SyncBackgroundService.TrySyncAsync();
+
+        try
+        {
+            await RoomRealtimeService.StartAsync(RoomId);
+        }
+        catch (Exception ex)
+        {
+            _status = $"Realtime недоступен, работаем без live-обновлений: {ex.Message}";
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
-    private async Task ReloadAsync()
+    private Task HandleNotesChangedAsync(Guid roomId)
+    {
+        if (roomId != RoomId)
+            return Task.CompletedTask;
+
+        _ = SyncBackgroundService.TrySyncAsync();
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleSyncCompletedAsync()
+    {
+        await ReloadLocalAsync(clearStatus: false);
+        _status = "Синхронизация завершена.";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task HandleSyncFailedAsync(string message)
+    {
+        _status = $"Синхронизация отложена: {message}";
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_isBusy)
+            return;
+
+        await ReloadLocalAsync(clearStatus: false);
+        _status = "Локальные данные обновлены.";
+
+        _ = SyncBackgroundService.TrySyncAsync();
+    }
+
+    private async Task ReloadLocalAsync(bool clearStatus = true)
     {
         try
         {
             _isBusy = true;
-            _status = string.Empty;
 
-            var notes = await NotesFacade.GetNotesAsync(@private: false);
-            _notes = notes.ToList();
+            if (clearStatus)
+                _status = string.Empty;
+
+            var notes = await NotesFacade.GetNotesAsync(false);
+
+            _notes.Clear();
+            _notes.AddRange(notes
+                .Where(x => !x.IsDeleted)
+                .OrderByDescending(x => x.UpdatedAt));
+
+            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
@@ -111,6 +187,7 @@ else
         finally
         {
             _isBusy = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -127,13 +204,15 @@ else
             _isBusy = true;
             _status = string.Empty;
 
-            await NotesFacade.CreateAsync(_newContent, _newPrivate);
+            await NotesFacade.CreateAsync(_newContent.Trim(), _newPrivate);
 
             _newContent = string.Empty;
             _newPrivate = false;
 
-            await ReloadAsync();
-            _status = "Заметка создана.";
+            await ReloadLocalAsync(clearStatus: false);
+            _status = "Заметка сохранена локально.";
+
+            _ = SyncBackgroundService.TrySyncAsync();
         }
         catch (Exception ex)
         {
@@ -142,6 +221,7 @@ else
         finally
         {
             _isBusy = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -173,11 +253,13 @@ else
             _isBusy = true;
             _status = string.Empty;
 
-            await NotesFacade.UpdateAsync(noteId, _editContent, _editPrivate);
+            await NotesFacade.UpdateAsync(noteId, _editContent.Trim(), _editPrivate);
 
             CancelEdit();
-            await ReloadAsync();
-            _status = "Заметка обновлена.";
+            await ReloadLocalAsync(clearStatus: false);
+            _status = "Заметка обновлена локально.";
+
+            _ = SyncBackgroundService.TrySyncAsync();
         }
         catch (Exception ex)
         {
@@ -186,6 +268,7 @@ else
         finally
         {
             _isBusy = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -199,12 +282,12 @@ else
             await NotesFacade.DeleteAsync(noteId);
 
             if (_editId == noteId)
-            {
                 CancelEdit();
-            }
 
-            await ReloadAsync();
-            _status = "Заметка удалена.";
+            await ReloadLocalAsync(clearStatus: false);
+            _status = "Заметка удалена локально.";
+
+            _ = SyncBackgroundService.TrySyncAsync();
         }
         catch (Exception ex)
         {
@@ -213,6 +296,16 @@ else
         finally
         {
             _isBusy = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
-}
+
+    public async ValueTask DisposeAsync()
+    {
+        SyncBackgroundService.SyncCompleted -= HandleSyncCompletedAsync;
+        SyncBackgroundService.SyncFailed -= HandleSyncFailedAsync;
+        RoomRealtimeService.NotesChanged -= HandleNotesChangedAsync;
+
+        await RoomRealtimeService.StopAsync(RoomId);
+    }
+} 

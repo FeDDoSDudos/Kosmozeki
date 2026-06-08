@@ -38,7 +38,7 @@ public sealed class UpdateNoteCommandHandler : ICommandHandler<UpdateNoteCommand
 
         try
         {
-             note = await _notes.GetByIdAsync(command.NoteId, ct);
+            note = await _notes.GetByIdAsync(command.NoteId, ct);
             if (note is null)
                 throw new InvalidOperationException($"Note '{command.NoteId}' was not found.");
 

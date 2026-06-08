@@ -42,6 +42,33 @@ public sealed class SharedNote : SyncableEntity
         return note;
     }
 
+    public static SharedNote FromSync(
+        Guid id,
+        Guid roomId,
+        Guid authorPlayerId,
+        string content,
+        NoteVisibility visibility,
+        DateTimeOffset updatedAt,
+        bool isDeleted,
+        string? lastModifiedBy = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(content);
+
+        return new SharedNote
+        {
+            Id = id,
+            RoomId = roomId,
+            AuthorPlayerId = authorPlayerId,
+            Content = content.Trim(),
+            Visibility = visibility,
+            Version = updatedAt,
+            UpdatedAt = updatedAt,
+            IsDirty = false,
+            IsDeleted = isDeleted,
+            LastModifiedBy = lastModifiedBy
+        };
+    }
+
     public void Update(
         string content,
         NoteVisibility visibility,

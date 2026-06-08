@@ -39,7 +39,7 @@ public sealed class NotesFacade
                 DefaultRoomId,
                 DefaultAuthorId,
                 content,
-                masterOnly ? NoteVisibility.Private : NoteVisibility.Shared,
+                masterOnly ? NoteVisibility.Private : NoteVisibility.Public,
                 "maui"),
             ct);
 
@@ -49,7 +49,7 @@ public sealed class NotesFacade
                 DefaultRoomId,
                 noteId,
                 content,
-                @private ? NoteVisibility.Private : NoteVisibility.Shared),
+                @private ? NoteVisibility.Private : NoteVisibility.Public),
             ct);
 
     public Task DeleteAsync(Guid noteId, CancellationToken ct = default)

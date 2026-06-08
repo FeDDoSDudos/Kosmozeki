@@ -7,10 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Common" Version="10.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.7" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Kosmozeki.Contracts\Kosmozeki.Contracts.csproj" />
     <ProjectReference Include="..\Kosmozeki.Domain\Kosmozeki.Domain.csproj" />
   </ItemGroup>
 
