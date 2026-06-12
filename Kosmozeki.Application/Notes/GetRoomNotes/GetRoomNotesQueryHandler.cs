@@ -13,28 +13,14 @@ public sealed class GetRoomNotesQueryHandler
         _readDb = readDb;
     }
 
-    public async Task<IReadOnlyList<NoteDto>> HandleAsync(
+    public Task<IReadOnlyList<NoteDto>> HandleAsync(
     GetRoomNotesQuery query,
     CancellationToken ct = default)
     {
-        var notes = await _readDb.QueryRoomNotesAsync(query.RoomId, includePrivate: true, ct);
-
-        var visible = notes
-            .Where(x => !x.IsDeleted)
-            .Where(x =>
-                string.Equals(x.Visibility, "Public", StringComparison.OrdinalIgnoreCase) ||
-                (string.Equals(x.Visibility, "Private", StringComparison.OrdinalIgnoreCase)
-                 && x.AuthorPlayerId == query.CurrentPlayerId));
-
-        if (query.IncludePrivateOnly)
-        {
-            visible = visible.Where(x =>
-                string.Equals(x.Visibility, "Private", StringComparison.OrdinalIgnoreCase)
-                && x.AuthorPlayerId == query.CurrentPlayerId);
-        }
-
-        return visible
-            .OrderByDescending(x => x.UpdatedAt)
-            .ToList();
+        return _readDb.QueryRoomNotesAsync(
+            query.RoomId,
+            query.CurrentPlayerId,
+            query.IncludePrivateOnly,
+            ct);
     }
 }

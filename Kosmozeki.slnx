@@ -14,5 +14,6 @@
       <Deploy Solution="Debug|*" />
     </Project>
   </Folder>
+  <Folder Name="/Solution Items/" />
   <Project Path="Kosmozeki.Infrastructure/Kosmozeki.Infrastructure.csproj" Id="7fb49426-4831-4754-915b-a30b892058de" />
 </Solution>

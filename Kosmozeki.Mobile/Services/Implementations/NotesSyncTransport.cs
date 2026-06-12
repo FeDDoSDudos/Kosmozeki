@@ -12,22 +12,26 @@ public sealed class NotesSyncTransport : INotesSyncTransport
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _httpClient;
+    private readonly IPlayerIdentity _playerIdentity;
 
-    public NotesSyncTransport(HttpClient httpClient, IOptions<ServerOptions> options)
+    public NotesSyncTransport(HttpClient httpClient, IPlayerIdentity playerIdentity, IOptions<ServerOptions> options)
     {
         var baseUrl = options.Value.BaseUrl?.TrimEnd('/')
             ?? throw new InvalidOperationException("ServerOptions.BaseUrl is not configured.");
 
         httpClient.BaseAddress = new Uri($"{baseUrl}/");
         _httpClient = httpClient;
+        _playerIdentity = playerIdentity;
     }
 
     public async Task<IReadOnlyList<NoteDto>> PullRoomNotesAsync(
         Guid roomId,
+        Guid playerId,
         bool includePrivate,
         CancellationToken ct = default)
     {
-        var url = $"api/rooms/{roomId:D}/notes?private={includePrivate.ToString().ToLowerInvariant()}";
+        var url =
+            $"api/rooms/{roomId:D}/notes?playerId={playerId:D}&private={includePrivate.ToString().ToLowerInvariant()}";
 
         var result = await _httpClient.GetFromJsonAsync<IReadOnlyList<NoteDto>>(url, JsonOptions, ct);
         return result ?? Array.Empty<NoteDto>();
@@ -77,7 +81,7 @@ public sealed class NotesSyncTransport : INotesSyncTransport
         Guid noteId,
         CancellationToken ct)
     {
-        var notes = await PullRoomNotesAsync(roomId, includePrivate: true, ct);
+        var notes = await PullRoomNotesAsync(roomId, _playerIdentity.PlayerId, includePrivate: true, ct);
         return notes.Any(x => x.Id == noteId);
     }
 

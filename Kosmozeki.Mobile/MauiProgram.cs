@@ -45,6 +45,8 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<CombatEngineService>();
 
+        builder.Services.AddSingleton<IPlayerIdentity, PlayerIdentity>();
+
         builder.Services.AddSingleton<IRoomRealtimeService, RoomRealtimeService>();
         builder.Services.AddSingleton<IRoomContext, RoomContext>();
         builder.Services.AddSingleton<ISyncBackgroundService, SyncBackgroundService>();

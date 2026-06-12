@@ -173,7 +173,7 @@ else
             if (clearStatus)
                 _status = string.Empty;
 
-            var notes = await NotesFacade.GetNotesAsync(false);
+            var notes = await NotesFacade.GetNotesAsync(true);
 
             _notes.Clear();
             _notes.AddRange(notes

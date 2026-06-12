@@ -2,9 +2,6 @@
 using Kosmozeki.Domain.Notes;
 using Kosmozeki.Domain.Shared;
 using Kosmozeki.Domain.Sync;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Kosmozeki.Application.Notes.UpdateNote;
 

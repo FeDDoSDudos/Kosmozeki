@@ -12,14 +12,15 @@ namespace Kosmozeki.Mobile.Services;
 public sealed class NotesFacade
 {
     private static readonly Guid DefaultRoomId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid DefaultAuthorId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
+    private readonly IPlayerIdentity _playerIdentity;
     private readonly IQueryHandler<GetRoomNotesQuery, IReadOnlyList<NoteDto>> _getNotes;
     private readonly ICommandHandler<CreateNoteCommand, NoteDto> _createNote;
     private readonly ICommandHandler<UpdateNoteCommand> _updateNote;
     private readonly ICommandHandler<DeleteNoteCommand> _deleteNote;
 
     public NotesFacade(
+        IPlayerIdentity playerIdentity,
         IQueryHandler<GetRoomNotesQuery, IReadOnlyList<NoteDto>> getNotes,
         ICommandHandler<CreateNoteCommand, NoteDto> createNote,
         ICommandHandler<UpdateNoteCommand> updateNote,
@@ -29,11 +30,12 @@ public sealed class NotesFacade
         _createNote = createNote;
         _updateNote = updateNote;
         _deleteNote = deleteNote;
+        _playerIdentity = playerIdentity;
     }
 
     public Task<IReadOnlyList<NoteDto>> GetNotesAsync(bool @private, CancellationToken ct = default)
     => _getNotes.HandleAsync(
-        new GetRoomNotesQuery(DefaultRoomId, DefaultAuthorId, @private),
+        new GetRoomNotesQuery(DefaultRoomId, _playerIdentity.PlayerId, @private),
         ct);
 
     public Task<NoteDto> CreateAsync(string content, bool @private, CancellationToken ct = default)
@@ -41,7 +43,7 @@ public sealed class NotesFacade
             new CreateNoteCommand(
                 DefaultRoomId,
                 Guid.NewGuid(),
-                DefaultAuthorId,
+                _playerIdentity.PlayerId,
                 content,
                 @private ? NoteVisibility.Private : NoteVisibility.Public,
                 "maui"),
@@ -52,7 +54,7 @@ public sealed class NotesFacade
             new UpdateNoteCommand(
                 DefaultRoomId,
                 noteId,
-                DefaultAuthorId,
+                _playerIdentity.PlayerId,
                 content,
                 @private ? NoteVisibility.Private : NoteVisibility.Public),
             ct);

@@ -12,6 +12,7 @@ public sealed class SyncBackgroundService : ISyncBackgroundService, IAsyncDispos
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IRoomContext _roomContext;
+    private readonly IPlayerIdentity _playerIdentity;
     private readonly ILogger<SyncBackgroundService> _logger;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -31,11 +32,13 @@ public sealed class SyncBackgroundService : ISyncBackgroundService, IAsyncDispos
     public SyncBackgroundService(
         IServiceScopeFactory scopeFactory,
         IRoomContext roomContext,
+        IPlayerIdentity playerIdentity,
         ILogger<SyncBackgroundService> logger)
     {
         _scopeFactory = scopeFactory;
         _roomContext = roomContext;
         _logger = logger;
+        _playerIdentity = playerIdentity;
     }
 
     public Task StartAsync(CancellationToken ct = default)
@@ -167,7 +170,7 @@ public sealed class SyncBackgroundService : ISyncBackgroundService, IAsyncDispos
         INotesSyncTransport transport,
         CancellationToken ct)
     {
-        var remoteNotes = await transport.PullRoomNotesAsync(roomId, includePrivate: false, ct);
+        var remoteNotes = await transport.PullRoomNotesAsync(roomId, _playerIdentity.PlayerId, includePrivate: false, ct);
 
         foreach (var dto in remoteNotes)
         {
