@@ -1,7 +1,306 @@
 ﻿# Exported project files
 
 Root: C:\Users\frolo\source\repos\Kosmozeki
-Generated: 2026-06-08 00:21:26
+Generated: 2026-06-12 12:38:22
+
+---
+
+## FILE: Kosmozeki.Application/Notes/CreateNote/CreateNoteCommand.cs
+
+```cs
+using Kosmozeki.Domain.Notes;
+
+namespace Kosmozeki.Application.Notes.CreateNote;
+
+public sealed record CreateNoteCommand(
+    Guid RoomId,
+    Guid Id,
+    Guid AuthorPlayerId,
+    string Content,
+    NoteVisibility Visibility,
+    string? LastModifiedBy = null);
+```
+
+---
+
+## FILE: Kosmozeki.Application/Notes/UpdateNote/UpdateNoteCommand.cs
+
+```cs
+using Kosmozeki.Domain.Notes;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace Kosmozeki.Application.Notes.UpdateNote;
+
+public sealed record UpdateNoteCommand(
+    Guid RoomId,
+    Guid NoteId,
+    string Content,
+    NoteVisibility Visibility);
+
+```
+
+---
+
+## FILE: Kosmozeki.Application/Notes/CreateNote/CreateNoteCommandHandler.cs
+
+```cs
+using Kosmozeki.Application.Common;
+using Kosmozeki.Contracts.Notes.Dtos;
+using Kosmozeki.Domain.Notes;
+using Kosmozeki.Domain.Shared;
+using Kosmozeki.Domain.Sync;
+
+namespace Kosmozeki.Application.Notes.CreateNote;
+
+public sealed class CreateNoteCommandHandler
+    : ICommandHandler<CreateNoteCommand, NoteDto>
+{
+    private readonly INoteRepository _notes;
+    private readonly IOutboxRepository _outbox;
+    private readonly IUnitOfWork _uow;
+    private readonly ICache _cache;
+    private readonly IDomainEventDispatcher _events;
+
+    public CreateNoteCommandHandler(
+        INoteRepository notes,
+        IOutboxRepository outbox,
+        IUnitOfWork uow,
+        ICache cache,
+        IDomainEventDispatcher events)
+    {
+        _notes = notes;
+        _outbox = outbox;
+        _uow = uow;
+        _cache = cache;
+        _events = events;
+    }
+
+    public async Task<NoteDto> HandleAsync(CreateNoteCommand command, CancellationToken ct = default)
+    {
+        await _uow.BeginAsync(ct);
+
+        try
+        {
+            var note = SharedNote.Create(
+                command.Id,
+                command.RoomId,
+                command.AuthorPlayerId,
+                command.Content,
+                command.Visibility,
+                command.LastModifiedBy);
+
+            await _notes.UpsertAsync(note, ct);
+            await _outbox.AddAsync(OutboxEntry.From(note), ct);
+            await _uow.CommitAsync(ct);
+
+            await _cache.RemoveAsync(NotesCacheKeys.Room(command.RoomId), ct);
+            await _events.DispatchAsync(note.DomainEvents, ct);
+            note.ClearDomainEvents();
+
+            return NoteMapper.ToDto(note, authorName: null, authorAvatarUrl: null);
+        }
+        catch
+        {
+            await _uow.RollbackAsync(ct);
+            throw;
+        }
+    }
+}
+
+```
+
+---
+
+## FILE: Kosmozeki.Application/Notes/UpdateNote/UpdateNoteCommandHandler.cs
+
+```cs
+using Kosmozeki.Application.Common;
+using Kosmozeki.Domain.Notes;
+using Kosmozeki.Domain.Shared;
+using Kosmozeki.Domain.Sync;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace Kosmozeki.Application.Notes.UpdateNote;
+
+public sealed class UpdateNoteCommandHandler : ICommandHandler<UpdateNoteCommand>
+{
+    private readonly INoteRepository _notes;
+    private readonly IOutboxRepository _outbox;
+    private readonly IUnitOfWork _uow;
+    private readonly ICache _cache;
+    private readonly IDomainEventDispatcher _events;
+
+    public UpdateNoteCommandHandler(
+        INoteRepository notes,
+        IOutboxRepository outbox,
+        IUnitOfWork uow,
+        ICache cache,
+        IDomainEventDispatcher events)
+    {
+        _notes = notes;
+        _outbox = outbox;
+        _uow = uow;
+        _cache = cache;
+        _events = events;
+    }
+
+    public async Task HandleAsync(UpdateNoteCommand command, CancellationToken ct = default)
+    {
+        await _uow.BeginAsync(ct);
+
+        SharedNote? note;
+
+        try
+        {
+            note = await _notes.GetByIdAsync(command.NoteId, ct);
+            if (note is null)
+                throw new InvalidOperationException($"Note '{command.NoteId}' was not found.");
+
+            note.Update(command.Content, command.Visibility);
+
+            await _notes.UpsertAsync(note, ct);
+            await _outbox.AddAsync(OutboxEntry.From(note), ct);
+
+            await _uow.CommitAsync(ct);
+        }
+        catch
+        {
+            await _uow.RollbackAsync(ct);
+            throw;
+        }
+
+        await _cache.RemoveAsync(NotesCacheKeys.Room(command.RoomId), ct);
+        await _events.DispatchAsync(note.DomainEvents, ct);
+        note.ClearDomainEvents();
+    }
+}
+
+```
+
+---
+
+## FILE: Kosmozeki.Domain/Notes/SharedNote.cs
+
+```cs
+using Kosmozeki.Domain.Notes.Events;
+using Kosmozeki.Domain.Shared;
+
+namespace Kosmozeki.Domain.Notes;
+
+public sealed class SharedNote : SyncableEntity
+{
+    private SharedNote()
+    {
+    }
+
+    public string Content { get; private set; } = string.Empty;
+    public Guid AuthorPlayerId { get; private set; }
+    public NoteVisibility Visibility { get; private set; }
+
+    public static SharedNote Create(
+        Guid id,
+        Guid roomId,
+        Guid authorPlayerId,
+        string content,
+        NoteVisibility visibility,
+        string? lastModifiedBy = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(content);
+
+        var now = DateTimeOffset.UtcNow;
+
+        var note = new SharedNote
+        {
+            Id = id,
+            RoomId = roomId,
+            AuthorPlayerId = authorPlayerId,
+            Content = content.Trim(),
+            Visibility = visibility,
+            Version = now,
+            UpdatedAt = now,
+            IsDirty = true,
+            IsDeleted = false,
+            LastModifiedBy = lastModifiedBy
+        };
+
+        note.RaiseDomainEvent(new NoteCreatedEvent(note.Id, note.RoomId));
+        return note;
+    }
+
+    public static SharedNote FromSync(
+        Guid id,
+        Guid roomId,
+        Guid authorPlayerId,
+        string content,
+        NoteVisibility visibility,
+        DateTimeOffset updatedAt,
+        bool isDeleted,
+        string? lastModifiedBy = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(content);
+
+        return new SharedNote
+        {
+            Id = id,
+            RoomId = roomId,
+            AuthorPlayerId = authorPlayerId,
+            Content = content.Trim(),
+            Visibility = visibility,
+            Version = updatedAt,
+            UpdatedAt = updatedAt,
+            IsDirty = false,
+            IsDeleted = isDeleted,
+            LastModifiedBy = lastModifiedBy
+        };
+    }
+
+    public void Update(
+        string content,
+        NoteVisibility visibility,
+        string? lastModifiedBy = null)
+    {
+        EnsureNotDeleted();
+        ArgumentException.ThrowIfNullOrWhiteSpace(content);
+
+        Content = content.Trim();
+        Visibility = visibility;
+        LastModifiedBy = lastModifiedBy;
+
+        Touch();
+
+        RaiseDomainEvent(new NoteUpdatedEvent(Id, RoomId));
+    }
+
+    public void Delete(string? lastModifiedBy = null)
+    {
+        EnsureNotDeleted();
+
+        IsDeleted = true;
+        LastModifiedBy = lastModifiedBy;
+        Touch();
+
+        RaiseDomainEvent(new NoteDeletedEvent(Id, RoomId));
+    }
+
+    private void Touch()
+    {
+        var now = DateTimeOffset.UtcNow;
+        UpdatedAt = now;
+        Version = now;
+        IsDirty = true;
+    }
+
+    private void EnsureNotDeleted()
+    {
+        if (IsDeleted)
+            throw new InvalidOperationException("Note is deleted.");
+    }
+}
+```
 
 ---
 
@@ -67,6 +366,7 @@ public sealed class NotesController : ControllerBase
         await _createNoteHandler.HandleAsync(
             new CreateNoteCommand(
                 roomId,
+                request.Id,
                 request.AuthorPlayerId,
                 request.Content,
                 visibility),
@@ -114,781 +414,13 @@ public sealed class NotesController : ControllerBase
 
 ---
 
-## FILE: Kosmozeki.Api/Realtime/SignalRRoomEventsPublisher.cs
-
-```cs
-using Kosmozeki.Api.Hubs;
-using Kosmozeki.Application.Common;
-using Microsoft.AspNetCore.SignalR;
-
-namespace Kosmozeki.Api.Realtime;
-
-public sealed class SignalRRoomEventsPublisher : IRoomEventsPublisher
-{
-    private readonly IHubContext<RoomHub> _hubContext;
-
-    public SignalRRoomEventsPublisher(IHubContext<RoomHub> hubContext)
-    {
-        _hubContext = hubContext;
-    }
-
-    public Task PublishNotesChangedAsync(
-        Guid roomId,
-        Guid noteId,
-        string type,
-        CancellationToken ct = default)
-    {
-        return _hubContext.Clients
-            .Group($"room:{roomId}")
-            .SendAsync("NotesChanged", new
-            {
-                RoomId = roomId,
-                NoteId = noteId,
-                Type = type,
-                OccurredAt = DateTimeOffset.UtcNow
-            }, ct);
-    }
-}
-
-```
-
----
-
-## FILE: Kosmozeki.Application/Common/IRoomEventsPublisher.cs
-
-```cs
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Kosmozeki.Application.Common;
-
-public interface IRoomEventsPublisher
-{
-    Task PublishNotesChangedAsync(
-        Guid roomId,
-        Guid noteId,
-        string type,
-        CancellationToken ct = default);
-}
-
-```
-
----
-
-## FILE: Kosmozeki.Contracts/Notes/Events/NoteChangedEvent.cs
-
-```cs
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Kosmozeki.Contracts.Notes.Events
-{
-    internal class NoteChangedEvent
-    {
-    }
-}
-
-```
-
----
-
-## FILE: Kosmozeki.Contracts/Notes/Events/NoteDeletedEvent.cs
-
-```cs
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Kosmozeki.Contracts.Notes.Events
-{
-    internal class NoteDeletedEvent
-    {
-    }
-}
-
-```
-
----
-
-## FILE: Kosmozeki.Contracts/Sync/Dtos/SyncRequestDto.cs
-
-```cs
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Kosmozeki.Contracts.Sync.Dtos
-{
-    internal class SyncRequestDto
-    {
-    }
-}
-
-```
-
----
-
-## FILE: Kosmozeki.Contracts/Sync/Dtos/SyncResponseDto.cs
-
-```cs
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Kosmozeki.Contracts.Sync.Dtos
-{
-    internal class SyncResponseDto
-    {
-    }
-}
-
-```
-
----
-
-## FILE: Kosmozeki.Core/Realtime/Implementations/RoomRealtimeService.cs
-
-```cs
-using Kosmozeki.Mobile.Options;
-using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.Options;
-
-namespace Kosmozeki.Core.Realtime.Implementations;
-
-public sealed class RoomRealtimeService : IRoomRealtimeService
-{
-    private readonly string _hubUrl;
-    private HubConnection? _connection;
-    private Guid? _joinedRoomId;
-
-    public event Func<Guid, Task>? NotesChanged;
-
-    public RoomRealtimeService(IOptions<ServerOptions> options)
-    {
-        var baseUrl = options.Value.BaseUrl.TrimEnd('/');
-        _hubUrl = $"{baseUrl}/hubs/room";
-    }
-
-    public async Task StartAsync(Guid roomId, CancellationToken ct = default)
-    {
-        if (_connection is null)
-        {
-            _connection = new HubConnectionBuilder()
-                .WithUrl(_hubUrl)
-                .WithAutomaticReconnect()
-                .Build();
-
-            _connection.On<NotesChangedMessage>("NotesChanged", async message =>
-            {
-                if (NotesChanged is not null)
-                    await NotesChanged.Invoke(message.RoomId);
-            });
-
-            _connection.Reconnected += async _ =>
-            {
-                if (_joinedRoomId.HasValue)
-                    await _connection.InvokeAsync("JoinRoom", _joinedRoomId.Value.ToString());
-            };
-
-            await _connection.StartAsync(ct);
-        }
-
-        if (_joinedRoomId == roomId)
-            return;
-
-        if (_joinedRoomId.HasValue)
-            await _connection.InvokeAsync("LeaveRoom", _joinedRoomId.Value.ToString(), ct);
-
-        await _connection.InvokeAsync("JoinRoom", roomId.ToString(), ct);
-        _joinedRoomId = roomId;
-    }
-
-    public async Task StopAsync(Guid roomId, CancellationToken ct = default)
-    {
-        if (_connection is null)
-            return;
-
-        if (_joinedRoomId == roomId)
-        {
-            await _connection.InvokeAsync("LeaveRoom", roomId.ToString(), ct);
-            _joinedRoomId = null;
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_connection is not null)
-        {
-            await _connection.DisposeAsync();
-            _connection = null;
-        }
-    }
-
-    private sealed record NotesChangedMessage(Guid RoomId, Guid NoteId, string Type, DateTimeOffset OccurredAt);
-}
-```
-
----
-
-## FILE: Kosmozeki.Mobile/MauiProgram.cs
-
-```cs
-using Kosmozeki.Application.DependencyInjection;
-using Kosmozeki.Core.Realtime;
-using Kosmozeki.Core.Realtime.Implementations;
-using Kosmozeki.Core.Services;
-using Kosmozeki.Domain.Shared;
-using Kosmozeki.Infrastructure.DependencyInjection;
-using Kosmozeki.Infrastructure.Messaging;
-using Kosmozeki.Mobile.Options;
-using Kosmozeki.Mobile.Services;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-
-namespace Kosmozeki.Mobile;
-
-public static class MauiProgram
-{
-    public static MauiApp CreateMauiApp()
-    {
-        var builder = MauiApp.CreateBuilder();
-
-        builder
-            .UseMauiApp<App>()
-            .ConfigureFonts(fonts =>
-            {
-                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-            });
-
-
-        using var appSettingsStream = FileSystem.OpenAppPackageFileAsync("appsettings.json").GetAwaiter().GetResult();
-        builder.Configuration.AddJsonStream(appSettingsStream);
-        builder.Services.Configure<ServerOptions>(builder.Configuration.GetSection(ServerOptions.SectionName));
-
-        var dbPath = Path.Combine(FileSystem.AppDataDirectory, "kosmozeki.db");
-
-        builder.Services.AddMauiBlazorWebView();
-
-        builder.Services.AddApplication();
-        builder.Services.AddInfrastructure();
-        builder.Services.AddCache();
-        builder.Services.AddKosmozekiMauiInfrastructure(dbPath);
-
-        builder.Services.AddScoped<CombatFacade>();
-        builder.Services.AddScoped<NotesFacade>();
-
-        builder.Services.AddSingleton<CombatEngineService>();
-
-        builder.Services.AddSingleton<IRoomRealtimeService, RoomRealtimeService>();
-        builder.Services.AddSingleton<IRoomContext, RoomContext>();
-        builder.Services.AddSingleton<ISyncBackgroundService, SyncBackgroundService>();
-        builder.Services.AddHttpClient<INotesSyncTransport, NotesSyncTransport>((sp, client) =>
-        {
-            var options = sp.GetRequiredService<IOptions<ServerOptions>>().Value;
-            client.BaseAddress = new Uri(options.BaseUrl);
-        });
-
-        builder.Services.AddScoped<IDomainEventDispatcher, NoOpDomainEventDispatcher>();
-
-#if DEBUG
-        builder.Services.AddBlazorWebViewDeveloperTools();
-        builder.Logging.AddDebug();
-#endif
-
-        return builder.Build();
-    }
-}
-```
-
----
-
-## FILE: Kosmozeki.Mobile/Components/Pages/Notes.razor
-
-```razor
-@page "/notes"
-@using Kosmozeki.Contracts.Notes.Dtos
-@using Kosmozeki.Mobile.Services
-@using Kosmozeki.Core.Realtime
-@implements IAsyncDisposable
-@inject NotesFacade NotesFacade
-@inject IRoomRealtimeService RoomRealtimeService
-@inject ISyncBackgroundService SyncBackgroundService
-
-
-<PageTitle>Notes</PageTitle>
-
-<div class="mb-3">
-    <label class="form-label">Новая заметка</label>
-    <textarea class="form-control" rows="5" @bind="_newContent" disabled="@_isBusy"></textarea>
-</div>
-
-<div class="form-check mb-3">
-    <input class="form-check-input" type="checkbox" id="privateNew" @bind="_newPrivate" disabled="@_isBusy" />
-    <label class="form-check-label" for="privateNew">Приватное</label>
-</div>
-
-<div class="mb-4">
-    <button class="btn btn-primary me-2" @onclick="CreateNoteAsync" disabled="@_isBusy">Сохранить</button>
-    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_isBusy">Обновить</button>
-</div>
-
-@if (!string.IsNullOrWhiteSpace(_status))
-{
-    <div class="alert alert-info">@_status</div>
-}
-
-@if (_isBusy && _notes.Count == 0)
-{
-    <p>Загрузка...</p>
-}
-else if (_notes.Count == 0)
-{
-    <p>Заметок пока нет.</p>
-}
-else
-{
-    @foreach (var note in _notes)
-    {
-        var isEditing = _editId == note.Id;
-
-        <div class="card mb-3">
-            <div class="card-body">
-                @if (isEditing)
-                {
-                    <div class="mb-2">
-                        <textarea class="form-control" rows="5" @bind="_editContent" disabled="@_isBusy"></textarea>
-                    </div>
-
-                    <div class="form-check mb-3">
-                        <input class="form-check-input"
-                               type="checkbox"
-                               id="@($"private-{note.Id}")"
-                               @bind="_editPrivate"
-                               disabled="@_isBusy" />
-                        <label class="form-check-label" for="@($"private-{note.Id}")">Приватное</label>
-                    </div>
-
-                    <button class="btn btn-success me-2" @onclick="() => SaveEditAsync(note.Id)" disabled="@_isBusy">Применить</button>
-                    <button class="btn btn-outline-secondary" @onclick="CancelEdit" disabled="@_isBusy">Отмена</button>
-                }
-                else
-                {
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex gap-2 align-items-center flex-wrap">
-                            <span class="badge @(string.Equals(note.Visibility, "Private", StringComparison.OrdinalIgnoreCase)
-                                                                  ? "bg-warning text-dark"
-                                                                  : "bg-info text-dark")">
-                                @note.Visibility
-                            </span>
-
-                            <small class="text-muted">
-                                @note.UpdatedAt.LocalDateTime.ToString("g")
-                            </small>
-                        </div>
-                    </div>
-
-                    <pre style="white-space: pre-wrap; margin: 0;">@note.Content</pre>
-
-                    <div class="mt-3">
-                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => BeginEdit(note)" disabled="@_isBusy">Редактировать</button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(note.Id)" disabled="@_isBusy">Удалить</button>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-}
-
-@code {
-    private readonly List<NoteDto> _notes = [];
-    private bool _isBusy;
-    private string _status = string.Empty;
-
-    private string _newContent = string.Empty;
-    private bool _newPrivate;
-
-    private Guid? _editId;
-    private string _editContent = string.Empty;
-    private bool _editPrivate;
-
-    private static readonly Guid RoomId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-
-    protected override async Task OnInitializedAsync()
-    {
-        SyncBackgroundService.SyncCompleted += HandleSyncCompletedAsync;
-        SyncBackgroundService.SyncFailed += HandleSyncFailedAsync;
-        RoomRealtimeService.NotesChanged += HandleNotesChangedAsync;
-
-        await SyncBackgroundService.StartAsync();
-        await ReloadLocalAsync(clearStatus: false);
-        _status = "Локальные данные загружены.";
-
-        _ = SyncBackgroundService.TrySyncAsync();
-
-        try
-        {
-            await RoomRealtimeService.StartAsync(RoomId);
-        }
-        catch (Exception ex)
-        {
-            _status = $"Realtime недоступен, работаем без live-обновлений: {ex.Message}";
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private Task HandleNotesChangedAsync(Guid roomId)
-    {
-        if (roomId != RoomId)
-            return Task.CompletedTask;
-
-        _ = SyncBackgroundService.TrySyncAsync();
-        return Task.CompletedTask;
-    }
-
-    private async Task HandleSyncCompletedAsync()
-    {
-        await ReloadLocalAsync(clearStatus: false);
-        _status = "Синхронизация завершена.";
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private Task HandleSyncFailedAsync(string message)
-    {
-        _status = $"Синхронизация отложена: {message}";
-        return InvokeAsync(StateHasChanged);
-    }
-
-    private async Task RefreshAsync()
-    {
-        if (_isBusy)
-            return;
-
-        await ReloadLocalAsync(clearStatus: false);
-        _status = "Локальные данные обновлены.";
-
-        _ = SyncBackgroundService.TrySyncAsync();
-    }
-
-    private async Task ReloadLocalAsync(bool clearStatus = true)
-    {
-        try
-        {
-            _isBusy = true;
-
-            if (clearStatus)
-                _status = string.Empty;
-
-            var notes = await NotesFacade.GetNotesAsync(false);
-
-            _notes.Clear();
-            _notes.AddRange(notes
-                .Where(x => !x.IsDeleted)
-                .OrderByDescending(x => x.UpdatedAt));
-
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (Exception ex)
-        {
-            _status = $"Ошибка загрузки: {ex.Message}";
-        }
-        finally
-        {
-            _isBusy = false;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private async Task CreateNoteAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_newContent))
-        {
-            _status = "Введите текст заметки.";
-            return;
-        }
-
-        try
-        {
-            _isBusy = true;
-            _status = string.Empty;
-
-            await NotesFacade.CreateAsync(_newContent.Trim(), _newPrivate);
-
-            _newContent = string.Empty;
-            _newPrivate = false;
-
-            await ReloadLocalAsync(clearStatus: false);
-            _status = "Заметка сохранена локально.";
-
-            _ = SyncBackgroundService.TrySyncAsync();
-        }
-        catch (Exception ex)
-        {
-            _status = $"Ошибка создания: {ex.Message}";
-        }
-        finally
-        {
-            _isBusy = false;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private void BeginEdit(NoteDto note)
-    {
-        _editId = note.Id;
-        _editContent = note.Content;
-        _editPrivate = string.Equals(note.Visibility, "Private", StringComparison.OrdinalIgnoreCase);
-        _status = string.Empty;
-    }
-
-    private void CancelEdit()
-    {
-        _editId = null;
-        _editContent = string.Empty;
-        _editPrivate = false;
-    }
-
-    private async Task SaveEditAsync(Guid noteId)
-    {
-        if (string.IsNullOrWhiteSpace(_editContent))
-        {
-            _status = "Текст заметки не может быть пустым.";
-            return;
-        }
-
-        try
-        {
-            _isBusy = true;
-            _status = string.Empty;
-
-            await NotesFacade.UpdateAsync(noteId, _editContent.Trim(), _editPrivate);
-
-            CancelEdit();
-            await ReloadLocalAsync(clearStatus: false);
-            _status = "Заметка обновлена локально.";
-
-            _ = SyncBackgroundService.TrySyncAsync();
-        }
-        catch (Exception ex)
-        {
-            _status = $"Ошибка обновления: {ex.Message}";
-        }
-        finally
-        {
-            _isBusy = false;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private async Task DeleteAsync(Guid noteId)
-    {
-        try
-        {
-            _isBusy = true;
-            _status = string.Empty;
-
-            await NotesFacade.DeleteAsync(noteId);
-
-            if (_editId == noteId)
-                CancelEdit();
-
-            await ReloadLocalAsync(clearStatus: false);
-            _status = "Заметка удалена локально.";
-
-            _ = SyncBackgroundService.TrySyncAsync();
-        }
-        catch (Exception ex)
-        {
-            _status = $"Ошибка удаления: {ex.Message}";
-        }
-        finally
-        {
-            _isBusy = false;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        SyncBackgroundService.SyncCompleted -= HandleSyncCompletedAsync;
-        SyncBackgroundService.SyncFailed -= HandleSyncFailedAsync;
-        RoomRealtimeService.NotesChanged -= HandleNotesChangedAsync;
-
-        await RoomRealtimeService.StopAsync(RoomId);
-    }
-} 
-```
-
----
-
-## FILE: Kosmozeki.Core/Services/ApiClients/INotesSyncTransport.cs
+## FILE: Kosmozeki.Api/Contracts/Notes/CreateNoteRequest.cs
 
 _ERROR: file not found_
 
 ---
 
-## FILE: Kosmozeki.Core/Services/ApiClients/Implementations/NotesSyncTransport.cs
+## FILE: Kosmozeki.Api/Contracts/Notes/UpsertNoteRequest.cs
 
 _ERROR: file not found_
-
----
-
-## FILE: Kosmozeki.Mobile/Services/SyncBackgroundService.cs
-
-_ERROR: file not found_
-
----
-
-## FILE: Kosmozeki.Mobile/Services/NotesFacade.cs
-
-_ERROR: file not found_
-
----
-
-## FILE: Kosmozeki.Infrastructure/ReadDb/SqliteReadDb.cs
-
-```cs
-using Kosmozeki.Application.Common;
-using Kosmozeki.Contracts.Notes.Dtos;
-using Microsoft.Data.Sqlite;
-
-namespace Kosmozeki.Infrastructure.ReadDb;
-
-public sealed class SqliteReadDb : IReadDb
-{
-    private readonly SqliteConnection _connection;
-
-    public SqliteReadDb(SqliteConnection connection)
-    {
-        _connection = connection;
-    }
-
-    public async Task<IReadOnlyList<NoteDto>> QueryRoomNotesAsync(
-        Guid roomId,
-        bool @private,
-        CancellationToken ct)
-    {
-        if (_connection.State != System.Data.ConnectionState.Open)
-            await _connection.OpenAsync(ct);
-
-        var result = new List<NoteDto>();
-
-        await using var command = _connection.CreateCommand();
-        command.CommandText = """
-            select
-                Id,
-                RoomId,
-                Content,
-                AuthorPlayerId,
-                Visibility,
-                UpdatedAt,
-                IsDeleted
-            from Notes
-            where RoomId = $roomId
-              and IsDeleted = 0
-              and ($private = 0 or Visibility = 'Private')
-            order by UpdatedAt desc;
-            """;
-
-        command.Parameters.AddWithValue("$roomId", roomId.ToString());
-        command.Parameters.AddWithValue("$private", @private ? 1 : 0);
-
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-        {
-            result.Add(new NoteDto(
-                Guid.Parse(reader.GetString(0)),
-                Guid.Parse(reader.GetString(1)),
-                reader.GetString(2),
-                Guid.Parse(reader.GetString(3)),
-                null,
-                null,
-                reader.GetString(4),
-                DateTimeOffset.Parse(reader.GetString(5)),
-                reader.GetInt64(6) == 1));
-        }
-
-        return result;
-    }
-
-    //public Task<IReadOnlyList<ItemDto>> QueryRoomInventoryAsync(Guid roomId, CancellationToken ct)
-    //    => Task.FromResult<IReadOnlyList<ItemDto>>(Array.Empty<ItemDto>());
-
-    //public Task<IReadOnlyList<ItemDto>> QueryPlayerInventoryAsync(Guid roomId, Guid playerId, CancellationToken ct)
-    //    => Task.FromResult<IReadOnlyList<ItemDto>>(Array.Empty<ItemDto>());
-
-    //public Task<IReadOnlyList<ItemTransferLogDto>> QueryItemHistoryAsync(Guid itemId, CancellationToken ct)
-    //    => Task.FromResult<IReadOnlyList<ItemTransferLogDto>>(Array.Empty<ItemTransferLogDto>());
-
-    //public Task<IReadOnlyList<PlayerDto>> QueryRoomPlayersAsync(Guid roomId, CancellationToken ct)
-    //    => Task.FromResult<IReadOnlyList<PlayerDto>>(Array.Empty<PlayerDto>());
-}
-```
-
----
-
-## FILE: Kosmozeki.Infrastructure/ReadDb/PostgresReadDb.cs
-
-```cs
-using Kosmozeki.Application.Common;
-using Kosmozeki.Contracts.Notes.Dtos;
-using Kosmozeki.Domain.Notes;
-using Kosmozeki.Infrastructure.Persistence.Postgre;
-using Microsoft.EntityFrameworkCore;
-
-namespace Kosmozeki.Infrastructure.ReadDb;
-
-public sealed class PostgresReadDb : IReadDb
-{
-    private readonly AppDbContext _dbContext;
-
-    public PostgresReadDb(AppDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
-
-    public async Task<IReadOnlyList<NoteDto>> QueryRoomNotesAsync(
-        Guid roomId,
-        bool @private,
-        CancellationToken ct)
-    {
-        var query = _dbContext.Notes
-            .AsNoTracking()
-            .Where(x => x.RoomId == roomId && !x.IsDeleted);
-
-        if (@private)
-        {
-            query = query.Where(x => x.Visibility == NoteVisibility.Private);
-        }
-
-        return await query
-            .OrderByDescending(x => x.UpdatedAt)
-            .Select(x => new NoteDto(
-                x.Id,
-                x.RoomId,
-                x.Content,
-                x.AuthorPlayerId,
-                null,
-                null,
-                x.Visibility.ToString(),
-                x.UpdatedAt,
-                x.IsDeleted))
-            .ToListAsync(ct);
-    }
-
-    //public Task<IReadOnlyList<ItemDto>> QueryRoomInventoryAsync(Guid roomId, CancellationToken ct)
-    //    => Task.FromResult<IReadOnlyList<ItemDto>>(Array.Empty<ItemDto>());
-
-    //public Task<IReadOnlyList<ItemDto>> QueryPlayerInventoryAsync(Guid roomId, Guid playerId, CancellationToken ct)
-    //    => Task.FromResult<IReadOnlyList<ItemDto>>(Array.Empty<ItemDto>());
-
-    //public Task<IReadOnlyList<ItemTransferLogDto>> QueryItemHistoryAsync(Guid itemId, CancellationToken ct)
-    //    => Task.FromResult<IReadOnlyList<ItemTransferLogDto>>(Array.Empty<ItemTransferLogDto>());
-
-    //public Task<IReadOnlyList<PlayerDto>> QueryRoomPlayersAsync(Guid roomId, CancellationToken ct)
-    //    => Task.FromResult<IReadOnlyList<PlayerDto>>(Array.Empty<PlayerDto>());
-}
-```
 

@@ -113,10 +113,6 @@ else
         RoomRealtimeService.NotesChanged += HandleNotesChangedAsync;
 
         await SyncBackgroundService.StartAsync();
-        await ReloadLocalAsync(clearStatus: false);
-        _status = "Локальные данные загружены.";
-
-        _ = SyncBackgroundService.TrySyncAsync();
 
         try
         {
@@ -124,18 +120,24 @@ else
         }
         catch (Exception ex)
         {
-            _status = $"Realtime недоступен, работаем без live-обновлений: {ex.Message}";
-            await InvokeAsync(StateHasChanged);
+            _status = $"Realtime недоступен: {ex.Message}";
         }
+
+        await ReloadLocalAsync(clearStatus: false);
+        await SyncBackgroundService.TrySyncAsync();
+        await ReloadLocalAsync(clearStatus: false);
     }
 
-    private Task HandleNotesChangedAsync(Guid roomId)
+    private async Task HandleNotesChangedAsync(Guid roomId)
     {
         if (roomId != RoomId)
-            return Task.CompletedTask;
+            return;
 
-        _ = SyncBackgroundService.TrySyncAsync();
-        return Task.CompletedTask;
+        await SyncBackgroundService.TrySyncAsync();
+        await ReloadLocalAsync(clearStatus: false);
+
+        _status = "Получены изменения с сервера.";
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task HandleSyncCompletedAsync()

@@ -6,4 +6,5 @@ namespace Kosmozeki.Application.Notes.GetRoomNotes;
 
 public sealed record GetRoomNotesQuery(
     Guid RoomId,
-    bool @Private);
+    Guid CurrentPlayerId,
+    bool IncludePrivateOnly = false);

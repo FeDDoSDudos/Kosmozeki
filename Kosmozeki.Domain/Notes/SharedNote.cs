@@ -14,6 +14,7 @@ public sealed class SharedNote : SyncableEntity
     public NoteVisibility Visibility { get; private set; }
 
     public static SharedNote Create(
+        Guid id,
         Guid roomId,
         Guid authorPlayerId,
         string content,
@@ -26,7 +27,7 @@ public sealed class SharedNote : SyncableEntity
 
         var note = new SharedNote
         {
-            Id = Guid.NewGuid(),
+            Id = id,
             RoomId = roomId,
             AuthorPlayerId = authorPlayerId,
             Content = content.Trim(),

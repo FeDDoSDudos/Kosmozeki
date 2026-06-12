@@ -5,6 +5,7 @@ using Kosmozeki.Application.Notes.GetRoomNotes;
 using Kosmozeki.Application.Notes.UpdateNote;
 using Kosmozeki.Contracts.Notes.Dtos;
 using Kosmozeki.Domain.Notes;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace Kosmozeki.Mobile.Services;
 
@@ -31,15 +32,18 @@ public sealed class NotesFacade
     }
 
     public Task<IReadOnlyList<NoteDto>> GetNotesAsync(bool @private, CancellationToken ct = default)
-        => _getNotes.HandleAsync(new GetRoomNotesQuery(DefaultRoomId, @private), ct);
+    => _getNotes.HandleAsync(
+        new GetRoomNotesQuery(DefaultRoomId, DefaultAuthorId, @private),
+        ct);
 
-    public Task<NoteDto> CreateAsync(string content, bool masterOnly, CancellationToken ct = default)
+    public Task<NoteDto> CreateAsync(string content, bool @private, CancellationToken ct = default)
         => _createNote.HandleAsync(
             new CreateNoteCommand(
                 DefaultRoomId,
+                Guid.NewGuid(),
                 DefaultAuthorId,
                 content,
-                masterOnly ? NoteVisibility.Private : NoteVisibility.Public,
+                @private ? NoteVisibility.Private : NoteVisibility.Public,
                 "maui"),
             ct);
 
@@ -48,6 +52,7 @@ public sealed class NotesFacade
             new UpdateNoteCommand(
                 DefaultRoomId,
                 noteId,
+                DefaultAuthorId,
                 content,
                 @private ? NoteVisibility.Private : NoteVisibility.Public),
             ct);

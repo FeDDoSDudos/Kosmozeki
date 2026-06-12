@@ -1,6 +1,7 @@
 ﻿namespace Kosmozeki.Api.Contracts.Notes;
 
-public sealed record UpdateNoteRequest(
+public sealed record UpsertNoteRequest(
+    Guid Id,
     Guid AuthorPlayerId,
     string Content,
     string Visibility,

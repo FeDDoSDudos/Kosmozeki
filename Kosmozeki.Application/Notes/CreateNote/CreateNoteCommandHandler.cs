@@ -36,6 +36,7 @@ public sealed class CreateNoteCommandHandler
         try
         {
             var note = SharedNote.Create(
+                command.Id,
                 command.RoomId,
                 command.AuthorPlayerId,
                 command.Content,

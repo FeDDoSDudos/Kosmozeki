@@ -14,7 +14,9 @@ public sealed class RoomRealtimeService : IRoomRealtimeService
 
     public RoomRealtimeService(IOptions<ServerOptions> options)
     {
-        var baseUrl = options.Value.BaseUrl.TrimEnd('/');
+        var baseUrl = options.Value.BaseUrl?.TrimEnd('/')
+            ?? throw new InvalidOperationException("ServerOptions.BaseUrl is not configured.");
+
         _hubUrl = $"{baseUrl}/hubs/room";
     }
 
@@ -35,18 +37,28 @@ public sealed class RoomRealtimeService : IRoomRealtimeService
 
             _connection.Reconnected += async _ =>
             {
-                if (_joinedRoomId.HasValue)
-                    await _connection.InvokeAsync("JoinRoom", _joinedRoomId.Value.ToString());
-            };
+                if (_connection is null || !_joinedRoomId.HasValue)
+                    return;
 
+                await _connection.InvokeAsync("JoinRoom", _joinedRoomId.Value.ToString(), CancellationToken.None);
+            };
+        }
+
+        if (_connection.State == HubConnectionState.Disconnected)
+        {
             await _connection.StartAsync(ct);
         }
+
+        if (_connection.State != HubConnectionState.Connected)
+            return;
 
         if (_joinedRoomId == roomId)
             return;
 
         if (_joinedRoomId.HasValue)
+        {
             await _connection.InvokeAsync("LeaveRoom", _joinedRoomId.Value.ToString(), ct);
+        }
 
         await _connection.InvokeAsync("JoinRoom", roomId.ToString(), ct);
         _joinedRoomId = roomId;
@@ -57,7 +69,7 @@ public sealed class RoomRealtimeService : IRoomRealtimeService
         if (_connection is null)
             return;
 
-        if (_joinedRoomId == roomId)
+        if (_joinedRoomId == roomId && _connection.State == HubConnectionState.Connected)
         {
             await _connection.InvokeAsync("LeaveRoom", roomId.ToString(), ct);
             _joinedRoomId = null;
@@ -73,5 +85,9 @@ public sealed class RoomRealtimeService : IRoomRealtimeService
         }
     }
 
-    private sealed record NotesChangedMessage(Guid RoomId, Guid NoteId, string Type, DateTimeOffset OccurredAt);
+    private sealed record NotesChangedMessage(
+        Guid RoomId,
+        Guid NoteId,
+        string Type,
+        DateTimeOffset OccurredAt);
 }

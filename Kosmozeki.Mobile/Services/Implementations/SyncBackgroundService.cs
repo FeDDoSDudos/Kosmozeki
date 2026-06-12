@@ -2,6 +2,7 @@
 using Kosmozeki.Contracts.Notes.Dtos;
 using Kosmozeki.Domain.Notes;
 using Kosmozeki.Domain.Sync;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
@@ -20,6 +21,12 @@ public sealed class SyncBackgroundService : ISyncBackgroundService, IAsyncDispos
 
     public event Func<Task>? SyncCompleted;
     public event Func<string, Task>? SyncFailed;
+
+    private readonly string _hubUrl;
+    private HubConnection? _connection;
+    private Guid? _joinedRoomId;
+    public event Func<Guid, Task>? NotesChanged;
+    private sealed record NotesChangedMessage(Guid RoomId, Guid NoteId, string Type, DateTimeOffset OccurredAt);
 
     public SyncBackgroundService(
         IServiceScopeFactory scopeFactory,
@@ -118,10 +125,10 @@ public sealed class SyncBackgroundService : ISyncBackgroundService, IAsyncDispos
         {
             try
             {
-                if (!string.Equals(entry.EntityType, nameof(OutboxNotePayload), StringComparison.Ordinal))
+                if (!string.Equals(entry.EntityType, nameof(SharedNote), StringComparison.Ordinal))
                     continue;
 
-                var note = JsonSerializer.Deserialize<OutboxNotePayload>(entry.Payload);
+                var note = JsonSerializer.Deserialize<SharedNoteOutboxPayload>(entry.Payload);
                 if (note is null)
                     continue;
 
@@ -205,4 +212,16 @@ public sealed class SyncBackgroundService : ISyncBackgroundService, IAsyncDispos
         await StopAsync();
         _gate.Dispose();
     }
+    private sealed record SharedNoteOutboxPayload(
+        Guid Id,
+        Guid RoomId,
+        Guid AuthorPlayerId,
+        string Content,
+        NoteVisibility Visibility,
+        DateTimeOffset Version,
+        DateTimeOffset UpdatedAt,
+        bool IsDirty,
+        bool IsDeleted,
+        string? LastModifiedBy);
 }
+

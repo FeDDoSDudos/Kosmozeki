@@ -33,9 +33,7 @@ public sealed class NotesSyncTransport : INotesSyncTransport
         return result ?? Array.Empty<NoteDto>();
     }
 
-    public async Task PushUpsertAsync(
-        NoteDto note,
-        CancellationToken ct = default)
+    public async Task PushUpsertAsync(NoteDto note, CancellationToken ct = default)
     {
         if (note.IsDeleted)
         {
@@ -43,36 +41,20 @@ public sealed class NotesSyncTransport : INotesSyncTransport
             return;
         }
 
-        var exists = await ExistsAsync(note.RoomId, note.Id, ct);
-
-        if (exists)
-        {
-            var request = new UpdateNoteRequest(
-                note.Content,
-                note.Visibility);
-
-            var response = await _httpClient.PutAsJsonAsync(
-                $"api/rooms/{note.RoomId:D}/notes/{note.Id:D}",
-                request,
-                JsonOptions,
-                ct);
-
-            await EnsureSuccessAsync(response, ct);
-            return;
-        }
-
-        var createRequest = new CreateNoteRequest(
+        var request = new UpsertNoteRequest(
+            note.Id,
             note.AuthorPlayerId,
             note.Content,
-            note.Visibility);
+            note.Visibility,
+            note.UpdatedAt);
 
-        var createResponse = await _httpClient.PostAsJsonAsync(
-            $"api/rooms/{note.RoomId:D}/notes",
-            createRequest,
+        var response = await _httpClient.PutAsJsonAsync(
+            $"api/rooms/{note.RoomId:D}/notes/{note.Id:D}",
+            request,
             JsonOptions,
             ct);
 
-        await EnsureSuccessAsync(createResponse, ct);
+        await EnsureSuccessAsync(response, ct);
     }
 
     public async Task PushDeleteAsync(

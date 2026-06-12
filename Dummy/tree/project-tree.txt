@@ -1,5 +1,5 @@
 Folder PATH listing
-Volume serial number is 000000DD 0AAF:CBF7
+Volume serial number is 0000000D 0AAF:CBF7
 C:.
 |   .gitattributes
 |   .gitignore
@@ -169,11 +169,6 @@ C:.
 |   |                   Microsoft.CodeAnalysis.Workspaces.MSBuild.resources.dll
 |   |                   Microsoft.CodeAnalysis.Workspaces.resources.dll
 |   |                   
-|   +---Contracts
-|   |   \---Notes
-|   |           CreateNoteRequest.cs
-|   |           UpdateNoteRequest.cs
-|   |           
 |   +---Controllers
 |   |       NotesController.cs
 |   |       
@@ -321,13 +316,19 @@ C:.
 |   |               Kosmozeki.Contracts.pdb
 |   |               
 |   +---Notes
+|   |   |   OutboxNotePayload.cs
+|   |   |   
 |   |   +---Dtos
 |   |   |       NoteDto.cs
 |   |   |       NoteListDto.cs
 |   |   |       
-|   |   \---Events
-|   |           NoteChangedEvent.cs
-|   |           NoteDeletedEvent.cs
+|   |   +---Events
+|   |   |       NoteChangedEvent.cs
+|   |   |       NoteDeletedEvent.cs
+|   |   |       
+|   |   \---Requests
+|   |           CreateNoteRequest.cs
+|   |           UpdateNoteRequest.cs
 |   |           
 |   +---obj
 |   |   |   Kosmozeki.Contracts.csproj.nuget.dgspec.json
@@ -418,14 +419,8 @@ C:.
 |   |           RoomRealtimeService.cs
 |   |           
 |   \---Services
-|       |   CombatEngineService.cs
-|       |   
-|       \---ApiClients
-|           |   INotesApiClient.cs
-|           |   
-|           \---Implementations
-|                   NotesApiClient.cs
-|                   
+|           CombatEngineService.cs
+|           
 +---Kosmozeki.Domain
 |   |   Kosmozeki.Domain.csproj
 |   |   
@@ -10381,11 +10376,17 @@ C:.
 |   |           splash.svg
 |   |           
 |   +---Services
-|   |       CombatFacade.cs
-|   |       ISyncBackgroundService.cs
-|   |       NotesFacade.cs
-|   |       SyncBackgroundService.cs
-|   |       
+|   |   |   INotesSyncTransport.cs
+|   |   |   IRoomContext.cs
+|   |   |   ISyncBackgroundService.cs
+|   |   |   
+|   |   \---Implementations
+|   |           CombatFacade.cs
+|   |           NotesFacade.cs
+|   |           NotesSyncTransport .cs
+|   |           RoomContext.cs
+|   |           SyncBackgroundService.cs
+|   |           
 |   \---wwwroot
 |       |   app.css
 |       |   index.html

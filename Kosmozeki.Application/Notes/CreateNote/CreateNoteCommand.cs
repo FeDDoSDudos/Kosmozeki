@@ -4,6 +4,7 @@ namespace Kosmozeki.Application.Notes.CreateNote;
 
 public sealed record CreateNoteCommand(
     Guid RoomId,
+    Guid Id,
     Guid AuthorPlayerId,
     string Content,
     NoteVisibility Visibility,
