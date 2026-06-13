@@ -3,8 +3,8 @@
     <application 
 		android:allowBackup="true"
 		android:usesCleartextTraffic="true"
-		android:icon="@mipmap/appicon" 
-		android:roundIcon="@mipmap/appicon_round" 
+		android:icon="@mipmap/photo" 
+		android:roundIcon="@mipmap/photo" 
 		android:supportsRtl="true">
 		
 	</application>

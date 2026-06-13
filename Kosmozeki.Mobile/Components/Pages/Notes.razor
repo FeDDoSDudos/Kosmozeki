@@ -106,11 +106,23 @@ else
 
     private static readonly Guid RoomId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
+    private bool _backgroundInitStarted;
+
     protected override async Task OnInitializedAsync()
     {
         SyncBackgroundService.SyncCompleted += HandleSyncCompletedAsync;
         SyncBackgroundService.SyncFailed += HandleSyncFailedAsync;
         RoomRealtimeService.NotesChanged += HandleNotesChangedAsync;
+
+        await ReloadLocalAsync(clearStatus: false);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _backgroundInitStarted)
+            return;
+
+        _backgroundInitStarted = true;
 
         await SyncBackgroundService.StartAsync();
 
@@ -121,11 +133,10 @@ else
         catch (Exception ex)
         {
             _status = $"Realtime недоступен: {ex.Message}";
+            await InvokeAsync(StateHasChanged);
         }
 
-        await ReloadLocalAsync(clearStatus: false);
-        await SyncBackgroundService.TrySyncAsync();
-        await ReloadLocalAsync(clearStatus: false);
+        _ = SyncBackgroundService.TrySyncAsync();
     }
 
     private async Task HandleNotesChangedAsync(Guid roomId)
@@ -134,7 +145,6 @@ else
             return;
 
         await SyncBackgroundService.TrySyncAsync();
-        await ReloadLocalAsync(clearStatus: false);
 
         _status = "Получены изменения с сервера.";
         await InvokeAsync(StateHasChanged);

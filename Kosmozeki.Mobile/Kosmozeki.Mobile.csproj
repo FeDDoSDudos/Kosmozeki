@@ -26,8 +26,8 @@
         <ApplicationId>com.companyname.kosmozeki</ApplicationId>
 
         <!-- Versions -->
-        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <ApplicationVersion>1</ApplicationVersion>
+        <ApplicationDisplayVersion>1.1</ApplicationDisplayVersion>
+        <ApplicationVersion>2</ApplicationVersion>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
         <WindowsPackageType>None</WindowsPackageType>
@@ -45,10 +45,13 @@
       <JavaMaximumHeapSize>2G</JavaMaximumHeapSize>
       <AndroidEnableMultiDex>true</AndroidEnableMultiDex>
 
+	  <RunAOTCompilation>false</RunAOTCompilation>
+	  <AndroidLinkMode>None</AndroidLinkMode>
+		
       <AndroidPackageFormat>apk</AndroidPackageFormat>
       <AndroidKeyStore>true</AndroidKeyStore>
       <!-- Убедитесь, что путь не содержит ../ и файл лежит рядом с .csproj -->
-      <AndroidSigningKeyStore>kosmozeki.keystore</AndroidSigningKeyStore>
+      <AndroidSigningKeyStore>..\kosmozeki-release.keystore</AndroidSigningKeyStore>
       <AndroidSigningKeyAlias>kosmozeki</AndroidSigningKeyAlias>
       <AndroidSigningKeyPass>123456</AndroidSigningKeyPass>
       <AndroidSigningStorePass>123456</AndroidSigningStorePass>
@@ -56,7 +59,7 @@
 
     <ItemGroup>
         <!-- App Icon -->
-        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+        <MauiIcon Include="Resources\AppIcon\photo.jpg" ForegroundFile="Resources\AppIcon\photo.jpg" Color="#512BD4" />
 
 		<MauiAsset Include="appsettings.json" LogicalName="appsettings.json" />
 
