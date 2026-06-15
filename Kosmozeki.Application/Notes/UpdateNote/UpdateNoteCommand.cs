@@ -8,5 +8,7 @@ namespace Kosmozeki.Application.Notes.UpdateNote;
 public sealed record UpdateNoteCommand(
     Guid RoomId,
     Guid NoteId,
+    Guid AuthorPlayerId,
     string Content,
-    NoteVisibility Visibility);
+    NoteVisibility Visibility,
+    string? LastModifiedBy = null);

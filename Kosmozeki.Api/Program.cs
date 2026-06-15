@@ -1,3 +1,6 @@
+using Kosmozeki.Api.Hubs;
+using Kosmozeki.Api.Realtime;
+using Kosmozeki.Application.Common;
 using Kosmozeki.Application.DependencyInjection;
 using Kosmozeki.Infrastructure.DependencyInjection;
 using Kosmozeki.Infrastructure.Persistence.Postgre;
@@ -6,19 +9,18 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSignalR();
 
 // место для наших DIев
 builder.Services.AddApplication();
 builder.Services.AddPostgreSQL(builder.Configuration);
 builder.Services.AddCache();
 builder.Services.AddInfrastructure();
+builder.Services.AddScoped<IRoomEventsPublisher, SignalRRoomEventsPublisher>();
 
 
 var app = builder.Build();
@@ -35,11 +37,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<RoomHub>("/hubs/room");
 
 app.UseSwagger();
 app.UseSwaggerUI();

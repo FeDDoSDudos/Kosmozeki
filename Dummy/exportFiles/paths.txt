@@ -1,0 +1,9 @@
+Kosmozeki.Application/Notes/GetRoomNotes/GetRoomNotesQuery.cs
+Kosmozeki.Application/Notes/GetRoomNotes/GetRoomNotesQueryHandler.cs
+Kosmozeki.Api/Controllers/NotesController.cs
+Kosmozeki.Application/Common/IReadDb.cs
+Kosmozeki.Infrastructure/Persistence/Postgre/ReadDb.cs
+Kosmozeki.Mobile/Services/Implementations/NotesFacade.cs
+Kosmozeki.Mobile/Services/Implementations/SyncBackgroundService.cs
+Kosmozeki.Mobile/Services/Implementations/NotesSyncTransport.cs
+Kosmozeki.Mobile/Components/Pages/Notes.razor

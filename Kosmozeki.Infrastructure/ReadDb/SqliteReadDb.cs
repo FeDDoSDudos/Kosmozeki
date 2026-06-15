@@ -15,7 +15,8 @@ public sealed class SqliteReadDb : IReadDb
 
     public async Task<IReadOnlyList<NoteDto>> QueryRoomNotesAsync(
         Guid roomId,
-        bool masterOnly,
+        Guid playerId,
+        bool includePrivate,
         CancellationToken ct)
     {
         if (_connection.State != System.Data.ConnectionState.Open)
@@ -25,23 +26,31 @@ public sealed class SqliteReadDb : IReadDb
 
         await using var command = _connection.CreateCommand();
         command.CommandText = """
-            select
-                Id,
-                RoomId,
-                Content,
-                AuthorPlayerId,
-                Visibility,
-                UpdatedAt,
-                IsDeleted
-            from Notes
-            where RoomId = $roomId
-              and IsDeleted = 0
-              and ($masterOnly = 0 or Visibility = 'MasterOnly')
-            order by UpdatedAt desc;
-            """;
+        select
+            Id,
+            RoomId,
+            Content,
+            AuthorPlayerId,
+            Visibility,
+            UpdatedAt,
+            IsDeleted
+        from Notes
+        where RoomId = $roomId
+          and IsDeleted = 0
+          and (
+                Visibility = 'Public'
+                or (
+                    $includePrivate = 1
+                    and Visibility = 'Private'
+                    and AuthorPlayerId = $playerId
+                )
+              )
+        order by UpdatedAt desc;
+        """;
 
         command.Parameters.AddWithValue("$roomId", roomId.ToString());
-        command.Parameters.AddWithValue("$masterOnly", masterOnly ? 1 : 0);
+        command.Parameters.AddWithValue("$playerId", playerId.ToString());
+        command.Parameters.AddWithValue("$includePrivate", includePrivate ? 1 : 0);
 
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))

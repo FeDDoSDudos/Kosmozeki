@@ -34,12 +34,13 @@ public sealed class NotesController : ControllerBase
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<NoteDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRoomNotes(
-        [FromRoute] Guid roomId,
-        [FromQuery] bool masterOnly,
-        CancellationToken ct)
+    [FromRoute] Guid roomId,
+    [FromQuery] Guid playerId,
+    [FromQuery] bool @private,
+    CancellationToken ct)
     {
         var result = await _getRoomNotesHandler.HandleAsync(
-            new GetRoomNotesQuery(roomId, masterOnly),
+            new GetRoomNotesQuery(roomId, playerId, @private),
             ct);
 
         return Ok(result);
@@ -57,6 +58,7 @@ public sealed class NotesController : ControllerBase
         await _createNoteHandler.HandleAsync(
             new CreateNoteCommand(
                 roomId,
+                request.Id,
                 request.AuthorPlayerId,
                 request.Content,
                 visibility),
@@ -79,8 +81,10 @@ public sealed class NotesController : ControllerBase
             new UpdateNoteCommand(
                 roomId,
                 noteId,
+                request.AuthorPlayerId,
                 request.Content,
-                visibility),
+                visibility,
+                "api"),
             ct);
 
         return NoContent();

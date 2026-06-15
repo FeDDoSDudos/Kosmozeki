@@ -1,0 +1,29 @@
+.app-layout {
+    min-height: 100dvh;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    background: radial-gradient(circle at top, rgba(100, 80, 180, 0.18), transparent 32%), linear-gradient(180deg, #0b1020 0%, #121a2b 100%);
+    color: #f8fafc;
+}
+
+.app-main {
+    min-height: 0;
+    overflow: auto;
+}
+
+.app-content {
+    width: min(100%, 960px);
+    margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom)) 16px;
+}
+
+.app-tabbar-shell {
+    position: sticky;
+    bottom: 0;
+    z-index: 1000;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(8, 12, 22, 0.82);
+    backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.28);
+}

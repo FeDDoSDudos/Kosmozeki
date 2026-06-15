@@ -36,6 +36,7 @@ public sealed class CreateNoteCommandHandler
         try
         {
             var note = SharedNote.Create(
+                command.Id,
                 command.RoomId,
                 command.AuthorPlayerId,
                 command.Content,
@@ -46,7 +47,7 @@ public sealed class CreateNoteCommandHandler
             await _outbox.AddAsync(OutboxEntry.From(note), ct);
             await _uow.CommitAsync(ct);
 
-            await _cache.RemoveByPrefixAsync($"notes:room:{command.RoomId}", ct);
+            await _cache.RemoveAsync(NotesCacheKeys.Room(command.RoomId), ct);
             await _events.DispatchAsync(note.DomainEvents, ct);
             note.ClearDomainEvents();
 

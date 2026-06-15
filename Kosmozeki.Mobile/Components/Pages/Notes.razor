@@ -1,0 +1,323 @@
+﻿@page "/notes"
+@using Kosmozeki.Contracts.Notes.Dtos
+@using Kosmozeki.Mobile.Services
+@using Kosmozeki.Core.Realtime
+@implements IAsyncDisposable
+@inject NotesFacade NotesFacade
+@inject IRoomRealtimeService RoomRealtimeService
+@inject ISyncBackgroundService SyncBackgroundService
+
+
+<PageTitle>Notes</PageTitle>
+
+<div class="mb-3">
+    <label class="form-label">Новая заметка</label>
+    <textarea class="form-control" rows="5" @bind="_newContent" disabled="@_isBusy"></textarea>
+</div>
+
+<div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" id="privateNew" @bind="_newPrivate" disabled="@_isBusy" />
+    <label class="form-check-label" for="privateNew">Приватное</label>
+</div>
+
+<div class="mb-4">
+    <button class="btn btn-primary me-2" @onclick="CreateNoteAsync" disabled="@_isBusy">Сохранить</button>
+    <button class="btn btn-secondary" @onclick="RefreshAsync" disabled="@_isBusy">Обновить</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(_status))
+{
+    <div class="alert alert-info">@_status</div>
+}
+
+@if (_isBusy && _notes.Count == 0)
+{
+    <p>Загрузка...</p>
+}
+else if (_notes.Count == 0)
+{
+    <p>Заметок пока нет.</p>
+}
+else
+{
+    @foreach (var note in _notes)
+    {
+        var isEditing = _editId == note.Id;
+
+        <div class="card mb-3">
+            <div class="card-body">
+                @if (isEditing)
+                {
+                    <div class="mb-2">
+                        <textarea class="form-control" rows="5" @bind="_editContent" disabled="@_isBusy"></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               id="@($"private-{note.Id}")"
+                               @bind="_editPrivate"
+                               disabled="@_isBusy" />
+                        <label class="form-check-label" for="@($"private-{note.Id}")">Приватное</label>
+                    </div>
+
+                    <button class="btn btn-success me-2" @onclick="() => SaveEditAsync(note.Id)" disabled="@_isBusy">Применить</button>
+                    <button class="btn btn-outline-secondary" @onclick="CancelEdit" disabled="@_isBusy">Отмена</button>
+                }
+                else
+                {
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <span class="badge @(string.Equals(note.Visibility, "Private", StringComparison.OrdinalIgnoreCase)
+                                                                  ? "bg-warning text-dark"
+                                                                  : "bg-info text-dark")">
+                                @note.Visibility
+                            </span>
+
+                            <small class="text-muted">
+                                @note.UpdatedAt.LocalDateTime.ToString("g")
+                            </small>
+                        </div>
+                    </div>
+
+                    <pre style="white-space: pre-wrap; margin: 0;">@note.Content</pre>
+
+                    <div class="mt-3">
+                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => BeginEdit(note)" disabled="@_isBusy">Редактировать</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(note.Id)" disabled="@_isBusy">Удалить</button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private readonly List<NoteDto> _notes = [];
+    private bool _isBusy;
+    private string _status = string.Empty;
+
+    private string _newContent = string.Empty;
+    private bool _newPrivate;
+
+    private Guid? _editId;
+    private string _editContent = string.Empty;
+    private bool _editPrivate;
+
+    private static readonly Guid RoomId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    private bool _backgroundInitStarted;
+
+    protected override async Task OnInitializedAsync()
+    {
+        SyncBackgroundService.SyncCompleted += HandleSyncCompletedAsync;
+        SyncBackgroundService.SyncFailed += HandleSyncFailedAsync;
+        RoomRealtimeService.NotesChanged += HandleNotesChangedAsync;
+
+        await ReloadLocalAsync(clearStatus: false);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _backgroundInitStarted)
+            return;
+
+        _backgroundInitStarted = true;
+
+        await SyncBackgroundService.StartAsync();
+
+        try
+        {
+            await RoomRealtimeService.StartAsync(RoomId);
+        }
+        catch (Exception ex)
+        {
+            _status = $"Realtime недоступен: {ex.Message}";
+            await InvokeAsync(StateHasChanged);
+        }
+
+        _ = SyncBackgroundService.TrySyncAsync();
+    }
+
+    private async Task HandleNotesChangedAsync(Guid roomId)
+    {
+        if (roomId != RoomId)
+            return;
+
+        await SyncBackgroundService.TrySyncAsync();
+
+        _status = "Получены изменения с сервера.";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleSyncCompletedAsync()
+    {
+        await ReloadLocalAsync(clearStatus: false);
+        _status = "Синхронизация завершена.";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task HandleSyncFailedAsync(string message)
+    {
+        _status = $"Синхронизация отложена: {message}";
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_isBusy)
+            return;
+
+        await ReloadLocalAsync(clearStatus: false);
+        _status = "Локальные данные обновлены.";
+
+        _ = SyncBackgroundService.TrySyncAsync();
+    }
+
+    private async Task ReloadLocalAsync(bool clearStatus = true)
+    {
+        try
+        {
+            _isBusy = true;
+
+            if (clearStatus)
+                _status = string.Empty;
+
+            var notes = await NotesFacade.GetNotesAsync(true);
+
+            _notes.Clear();
+            _notes.AddRange(notes
+                .Where(x => !x.IsDeleted)
+                .OrderByDescending(x => x.UpdatedAt));
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            _status = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task CreateNoteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newContent))
+        {
+            _status = "Введите текст заметки.";
+            return;
+        }
+
+        try
+        {
+            _isBusy = true;
+            _status = string.Empty;
+
+            await NotesFacade.CreateAsync(_newContent.Trim(), _newPrivate);
+
+            _newContent = string.Empty;
+            _newPrivate = false;
+
+            await ReloadLocalAsync(clearStatus: false);
+            _status = "Заметка сохранена локально.";
+
+            _ = SyncBackgroundService.TrySyncAsync();
+        }
+        catch (Exception ex)
+        {
+            _status = $"Ошибка создания: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void BeginEdit(NoteDto note)
+    {
+        _editId = note.Id;
+        _editContent = note.Content;
+        _editPrivate = string.Equals(note.Visibility, "Private", StringComparison.OrdinalIgnoreCase);
+        _status = string.Empty;
+    }
+
+    private void CancelEdit()
+    {
+        _editId = null;
+        _editContent = string.Empty;
+        _editPrivate = false;
+    }
+
+    private async Task SaveEditAsync(Guid noteId)
+    {
+        if (string.IsNullOrWhiteSpace(_editContent))
+        {
+            _status = "Текст заметки не может быть пустым.";
+            return;
+        }
+
+        try
+        {
+            _isBusy = true;
+            _status = string.Empty;
+
+            await NotesFacade.UpdateAsync(noteId, _editContent.Trim(), _editPrivate);
+
+            CancelEdit();
+            await ReloadLocalAsync(clearStatus: false);
+            _status = "Заметка обновлена локально.";
+
+            _ = SyncBackgroundService.TrySyncAsync();
+        }
+        catch (Exception ex)
+        {
+            _status = $"Ошибка обновления: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task DeleteAsync(Guid noteId)
+    {
+        try
+        {
+            _isBusy = true;
+            _status = string.Empty;
+
+            await NotesFacade.DeleteAsync(noteId);
+
+            if (_editId == noteId)
+                CancelEdit();
+
+            await ReloadLocalAsync(clearStatus: false);
+            _status = "Заметка удалена локально.";
+
+            _ = SyncBackgroundService.TrySyncAsync();
+        }
+        catch (Exception ex)
+        {
+            _status = $"Ошибка удаления: {ex.Message}";
+        }
+        finally
+        {
+            _isBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        SyncBackgroundService.SyncCompleted -= HandleSyncCompletedAsync;
+        SyncBackgroundService.SyncFailed -= HandleSyncFailedAsync;
+        RoomRealtimeService.NotesChanged -= HandleNotesChangedAsync;
+
+        await RoomRealtimeService.StopAsync(RoomId);
+    }
+} 

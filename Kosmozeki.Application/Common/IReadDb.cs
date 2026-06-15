@@ -7,7 +7,11 @@ namespace Kosmozeki.Application.Common;
 
 public interface IReadDb
 {
-    Task<IReadOnlyList<NoteDto>> QueryRoomNotesAsync(Guid roomId, bool masterOnly, CancellationToken ct);
+    Task<IReadOnlyList<NoteDto>> QueryRoomNotesAsync(
+        Guid roomId,
+        Guid currentPlayerId,
+        bool includePrivate,
+        CancellationToken ct);
     //Task<IReadOnlyList<ItemDto>> QueryRoomInventoryAsync(Guid roomId, CancellationToken ct);
     //Task<IReadOnlyList<ItemDto>> QueryPlayerInventoryAsync(Guid roomId, Guid playerId, CancellationToken ct);
     //Task<IReadOnlyList<ItemTransferLogDto>> QueryItemHistoryAsync(Guid itemId, CancellationToken ct);

@@ -2,9 +2,6 @@
 using Kosmozeki.Domain.Notes;
 using Kosmozeki.Domain.Shared;
 using Kosmozeki.Domain.Sync;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Kosmozeki.Application.Notes.DeleteNote;
 
@@ -39,13 +36,20 @@ public sealed class DeleteNoteCommandHandler : ICommandHandler<DeleteNoteCommand
         try
         {
             note = await _notes.GetByIdAsync(command.NoteId, ct);
+
             if (note is null)
-                throw new InvalidOperationException($"Note '{command.NoteId}' was not found.");
+            {
+                await _uow.CommitAsync(ct);
+                return;
+            }
 
-            note.Delete();
+            if (!note.IsDeleted)
+            {
+                note.Delete();
 
-            await _notes.UpsertAsync(note, ct);
-            await _outbox.AddAsync(OutboxEntry.From(note), ct);
+                await _notes.UpsertAsync(note, ct);
+                await _outbox.AddAsync(OutboxEntry.From(note), ct);
+            }
 
             await _uow.CommitAsync(ct);
         }
@@ -55,7 +59,7 @@ public sealed class DeleteNoteCommandHandler : ICommandHandler<DeleteNoteCommand
             throw;
         }
 
-        await _cache.RemoveByPrefixAsync($"notesroom{command.RoomId}", ct);
+        await _cache.RemoveAsync(NotesCacheKeys.Room(command.RoomId), ct);
         await _events.DispatchAsync(note.DomainEvents, ct);
         note.ClearDomainEvents();
     }

@@ -1,8 +1,5 @@
 ﻿using Kosmozeki.Application.Common;
 using Kosmozeki.Contracts.Notes.Dtos;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Kosmozeki.Application.Notes.GetRoomNotes;
 
@@ -10,28 +7,20 @@ public sealed class GetRoomNotesQueryHandler
     : IQueryHandler<GetRoomNotesQuery, IReadOnlyList<NoteDto>>
 {
     private readonly IReadDb _readDb;
-    private readonly ICache _cache;
 
-    public GetRoomNotesQueryHandler(IReadDb readDb, ICache cache)
+    public GetRoomNotesQueryHandler(IReadDb readDb)
     {
         _readDb = readDb;
-        _cache = cache;
     }
 
-    public async Task<IReadOnlyList<NoteDto>> HandleAsync(
-        GetRoomNotesQuery query,
-        CancellationToken ct = default)
+    public Task<IReadOnlyList<NoteDto>> HandleAsync(
+    GetRoomNotesQuery query,
+    CancellationToken ct = default)
     {
-        var cacheKey = $"notesroom{query.RoomId}master{query.MasterOnly}";
-
-        var cached = await _cache.GetAsync<IReadOnlyList<NoteDto>>(cacheKey, ct);
-        if (cached is not null)
-            return cached;
-
-        var notes = await _readDb.QueryRoomNotesAsync(query.RoomId, query.MasterOnly, ct);
-
-        await _cache.SetAsync(cacheKey, notes, TimeSpan.FromMinutes(5), ct);
-
-        return notes;
+        return _readDb.QueryRoomNotesAsync(
+            query.RoomId,
+            query.CurrentPlayerId,
+            query.IncludePrivate,
+            ct);
     }
 }

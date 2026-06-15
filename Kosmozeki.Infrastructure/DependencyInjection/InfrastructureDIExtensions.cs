@@ -9,7 +9,7 @@ public static class InfrastructureDIExtensions
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
-        services.AddScoped<IDomainEventDispatcher, NoOpDomainEventDispatcher>();
+        services.AddScoped<IDomainEventDispatcher, SignalREventDispatcher>();
 
         return services;
     }
