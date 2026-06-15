@@ -20,7 +20,7 @@ public sealed class GetRoomNotesQueryHandler
         return _readDb.QueryRoomNotesAsync(
             query.RoomId,
             query.CurrentPlayerId,
-            query.IncludePrivateOnly,
+            query.IncludePrivate,
             ct);
     }
 }

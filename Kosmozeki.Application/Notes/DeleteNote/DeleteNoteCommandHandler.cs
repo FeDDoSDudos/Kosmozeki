@@ -62,11 +62,8 @@ public sealed class DeleteNoteCommandHandler : ICommandHandler<DeleteNoteCommand
             throw;
         }
 
-        if (note is not null && !note.IsDeleted)
-        {
-            await _cache.RemoveAsync(NotesCacheKeys.Room(command.RoomId), ct);
-            await _events.DispatchAsync(note.DomainEvents, ct);
-            note.ClearDomainEvents();
-        }
+        await _cache.RemoveAsync(NotesCacheKeys.Room(command.RoomId), ct);
+        await _events.DispatchAsync(note.DomainEvents, ct);
+        note.ClearDomainEvents();
     }
 }

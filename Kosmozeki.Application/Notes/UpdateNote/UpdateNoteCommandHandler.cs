@@ -31,7 +31,7 @@ public sealed class UpdateNoteCommandHandler : ICommandHandler<UpdateNoteCommand
     {
         await _uow.BeginAsync(ct);
 
-        SharedNote? note;
+        SharedNote? note = null;
         var changed = false;
 
         try
