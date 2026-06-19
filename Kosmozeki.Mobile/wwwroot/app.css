@@ -24,6 +24,17 @@ h1:focus {
     outline: none;
 }
 
+.delete-confirm-modal .modal-content {
+    background-color: #ffffff;
+    color: #212529;
+}
+
+.delete-confirm-modal .modal-header,
+.delete-confirm-modal .modal-body,
+.delete-confirm-modal .modal-footer {
+    color: #212529;
+}
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }
