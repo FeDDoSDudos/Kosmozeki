@@ -9,6 +9,7 @@ namespace Kosmozeki.Mobile.Components.Pages;
 public partial class Home : ComponentBase
 {
     [Inject] protected CombatFacade CombatFacade { get; set; } = default!;
+    [Inject] protected IInspirationState InspirationState { get; set; } = default!;
 
     protected Character _hero = new("Мой Космозэк");
     protected int _incomingDamage = 0;
@@ -29,11 +30,33 @@ public partial class Home : ComponentBase
         ? ActiveWeapon.BaseDIF - _bulletsFired + _customModifier
         : 0;
 
+    protected int Inspiration
+    {
+        get => InspirationState.Value;
+        set => InspirationState.Set(value);
+    }
+
     protected override async Task OnInitializedAsync()
     {
         var state = await CombatFacade.LoadAsync();
         _hero = state.Hero;
         _arsenal = state.Arsenal.ToList();
+    }    
+
+    protected void ChangeInspiration(int delta)
+    {
+        InspirationState.Change(delta);
+    }
+    protected void OnInspirationChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var value))
+        {
+            Inspiration = value;
+        }
+        else
+        {
+            Inspiration = 0;
+        }
     }
 
     protected async Task TakeDamageAsync()

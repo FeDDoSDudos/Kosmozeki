@@ -7,6 +7,7 @@ using Kosmozeki.Infrastructure.DependencyInjection;
 using Kosmozeki.Infrastructure.Messaging;
 using Kosmozeki.Mobile.Options;
 using Kosmozeki.Mobile.Services;
+using Kosmozeki.Mobile.Services.Implementations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -55,6 +56,8 @@ public static class MauiProgram
             var options = sp.GetRequiredService<IOptions<ServerOptions>>().Value;
             client.BaseAddress = new Uri(options.BaseUrl);
         });
+
+        builder.Services.AddSingleton<IInspirationState, InspirationState>();
 
         builder.Services.AddScoped<IDomainEventDispatcher, NoOpDomainEventDispatcher>();
 

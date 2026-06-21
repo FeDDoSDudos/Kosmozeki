@@ -58,6 +58,31 @@
         </div>
     </div>
 
+    @* Вдохновение *@
+    <div style="margin-bottom: 15px; padding: 10px; border-radius: 8px; background-color: #eaf7ff; border: 1px solid #b6e0fe;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <strong style="color: #0c5460;">Вдохновение</strong>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button @onclick="@(() => ChangeInspiration(-1))"
+                        style="width: 36px; height: 36px; border: none; border-radius: 6px; background: #dc3545; color: white; font-size: 1.1rem;">
+                    −
+                </button>
+
+                <input type="number"
+                       min="0"
+                       value="@Inspiration"
+                       @onchange="OnInspirationChanged"
+                       style="width: 70px; text-align: center; padding: 6px; border: 1px solid #9fd3f6; border-radius: 6px; font-weight: bold;" />
+
+                <button @onclick="@(() => ChangeInspiration(1))"
+                        style="width: 36px; height: 36px; border: none; border-radius: 6px; background: #28a745; color: white; font-size: 1.1rem;">
+                    +
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- АРСЕНАЛ (Без изменений, только привязки те же) -->
     <div class="card" style="border: 2px solid #6c757d; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
         <h3 style="color: #6c757d; margin-top: 0;">Арсенал</h3>
